@@ -55,6 +55,18 @@ type taskHandle struct {
 	cancel context.CancelFunc
 }
 
+// ActorLogsRequest represents the JSON payload for requesting actor logs
+type ActorLogsRequest struct {
+	ActorID string `json:"actor_id"`
+}
+
+// ActorLogsResponse represents the JSON response for actor logs
+type ActorLogsResponse struct {
+	Status string `json:"status"`
+	Logs   string `json:"logs,omitempty"`
+	Error  string `json:"error,omitempty"`
+}
+
 // ActorStatusRequest defines the structure for the request payload
 type ActorStatusRequest struct {
 	ActorID string `json:"actor_id"`
@@ -65,6 +77,53 @@ type ActorStatusResponse struct {
 	Status      string `json:"status"`
 	ActorStatus string `json:"actor_status,omitempty"`
 	Error       string `json:"error,omitempty"`
+}
+
+// GetActorLogs sends a POST request to retrieve logs of a specific actor
+func GetActorLogs(ctx context.Context, url, actorID string) (string, error) {
+	// Create the request payload
+	payload := ActorLogsRequest{ActorID: actorID}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal JSON: %w", err)
+	}
+
+	// Create a new POST request
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Set the content type to application/json
+	req.Header.Set("Content-Type", "application/json")
+
+	// Perform the HTTP request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send POST request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Unmarshal the response
+	var response ActorLogsResponse
+	err = json.Unmarshal(responseBody, &response)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	// Check if the response contains an error
+	if response.Status != "success" {
+		return "", fmt.Errorf("error from server: %s", response.Error)
+	}
+
+	return response.Logs, nil
 }
 
 // GetActorStatus sends a POST request to the specified URL with the given actor_id
@@ -179,6 +238,7 @@ func (h *taskHandle) run() {
 	}()
 
 	url := GlobalConfig.TaskConfig.Task.RayServeEndpoint + "/api/actor-status"
+	logs_url := GlobalConfig.TaskConfig.Task.RayServeEndpoint + "/api/actor-logs"
 	actorID := GlobalConfig.TaskConfig.Task.Actor
 
 	// Counter for tracking consecutive not ALIVE statuses.
@@ -206,7 +266,10 @@ func (h *taskHandle) run() {
 		} else {
 			notAliveCount = 0
 		}
-
+		actorLogs, err := GetActorLogs(h.ctx, logs_url, actorID)
+		if err!= nil {
+            fmt.Println("Error retrieving actor logs. Exiting...")
+        }
 		// Sleep for a specified interval before checking again
 		select {
 		case <-time.After(2 * time.Second):
@@ -221,6 +284,9 @@ func (h *taskHandle) run() {
 			if _, err := fmt.Fprintf(f, "[%s] - actorId\n", actorID); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
 			}
+			if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err!= nil {
+                h.handleRunError(err, "failed to write to stdout")
+            }
 		case <-h.ctx.Done():
 			// Handle context cancellation
 			fmt.Println("Context cancelled. Exiting...")
