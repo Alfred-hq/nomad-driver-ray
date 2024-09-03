@@ -181,6 +181,9 @@ func (h *taskHandle) run() {
 	url := GlobalConfig.TaskConfig.Task.RayServeEndpoint + "/api/actor-status"
 	actorID := GlobalConfig.TaskConfig.Task.Actor
 
+	// Counter for tracking consecutive not ALIVE statuses.
+	notAliveCount := 0
+
 	// Block until stopped, doing nothing in the meantime.
 	for {
 		fmt.Println(url)
@@ -188,27 +191,27 @@ func (h *taskHandle) run() {
 		// Call the GetActorStatus function
 		actorStatus, err := GetActorStatus(h.ctx, url, actorID)
 		if err != nil {
-			fmt.Println("Actor is no longer ALIVE. Exiting...")
-			// return
+			fmt.Println("Error retrieving actor status. Exiting...")
+			return
 		}
-
-		// Print or log the current status
-		fmt.Printf("Actor Status: %s\n", err)
 
 		// Check if the status is still ALIVE
 		if actorStatus != "ALIVE" {
-			fmt.Println("Actor is no longer ALIVE. Exiting...")
-			// break
+			notAliveCount++
+			fmt.Printf("Actor status is not ALIVE, count: %d\n", notAliveCount)
+			if notAliveCount >= 3 {
+				fmt.Println("Actor is no longer ALIVE after 3 attempts. Exiting...")
+				break
+			}
+		} else {
+			notAliveCount = 0
 		}
 
 		// Sleep for a specified interval before checking again
 		select {
-		case <-time.After(5 * time.Second):
-			// Continue checking after 5 seconds
+		case <-time.After(2 * time.Second):
+			// Continue checking after 2 seconds
 			now := time.Now().Format(time.RFC3339)
-			if _, err := fmt.Fprintf(f, "[%s] - url\n", url); err != nil {
-				h.handleRunError(err, "failed to write to stdout")
-			}
 			if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
 			}
@@ -229,7 +232,7 @@ func (h *taskHandle) run() {
 
 	// Only stop task if we're not detaching.
 	if !h.detach {
-		if err := h.stopTask(); err != nil { // Implement the task stopping based on your REST API, if applicable
+		if err := h.stopTask(); err != nil {
 			h.handleRunError(err, "failed to stop task correctly")
 			return
 		}
