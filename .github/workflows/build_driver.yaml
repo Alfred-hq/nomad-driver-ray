@@ -14,7 +14,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Specifies Ubuntu 22.04
 
     steps:
     - name: Checkout code
@@ -37,7 +37,7 @@ jobs:
 
     - name: Build the Go binary
       run: |
-        GOOS=linux GOARCH=amd64 go build -o nomad-remote-ray-driver  # Specifying the target OS and architecture
+        go build -o nomad-remote-ray-driver nomad-driver-ray
 
     - name: Upload binary as an artifact
       uses: actions/upload-artifact@v2
@@ -47,7 +47,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: build
 
     steps:
