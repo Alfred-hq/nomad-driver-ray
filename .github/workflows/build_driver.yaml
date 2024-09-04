@@ -1,4 +1,7 @@
-name: Build and Release
+name: build nomad remote ray driver
+
+permissions:
+  contents: write
 
 on:
   push:
@@ -10,45 +13,64 @@ on:
 
 jobs:
   build:
-    name: Build Release Binary
+    name: Build
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Git repository
+    - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Set up Go 1.22.3
-      uses: actions/setup-go@v2
+    - name: Set up Go
+      uses: actions/setup-go@v3
       with:
         go-version: '1.22.3'
 
-    - name: Build binary
-      run: |
-        export GOOS=linux
-        export GOARCH=amd64
-        go build -o myproject-${GOOS}-${GOARCH} .
+    - name: Cache Go modules
+      uses: actions/cache@v2
+      with:
+        path: |
+          ~/go/pkg/mod
+          ~/.cache/go-build
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
 
-    - name: Upload Release Binary
+    - name: Build the Go binary
+      run: |
+        GOOS=linux GOARCH=amd64 go build -o nomad-remote-ray-driver  # Specifying the target OS and architecture
+
+    - name: Upload binary as an artifact
       uses: actions/upload-artifact@v2
       with:
-        name: myproject-linux-amd64
-        path: myproject-linux-amd64
+        name: nomad-remote-ray-driver-binary
+        path: nomad-remote-ray-driver
 
   release:
-    needs: build
+    name: Create GitHub Release
     runs-on: ubuntu-latest
+    needs: build
+
     steps:
-    - name: Download Binary
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Download artifact
       uses: actions/download-artifact@v2
       with:
-        name: myproject-linux-amd64
-        path: release
+        name: nomad-remote-ray-driver-binary
+
+    - name: Create Tag
+      id: tag
+      run: |
+        TAG_NAME="v$(date +'%Y%m%d%H%M%S')"
+        git tag $TAG_NAME
+        git push origin $TAG_NAME
+        echo "::set-output name=TAG::$TAG_NAME"
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: release/myproject-linux-amd64
-        token: ${{ secrets.GITHUB_TOKEN }}
-
+        tag_name: ${{ steps.tag.outputs.TAG }}
+        files: nomad-remote-ray-driver
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
