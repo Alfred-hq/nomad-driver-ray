@@ -37,7 +37,7 @@ jobs:
 
     - name: Build the Go binary
       run: |
-        go build -o nomad-remote-ray-driver nomad-driver-ray
+        go build -o nomad-remote-ray-driver
 
     - name: Upload binary as an artifact
       uses: actions/upload-artifact@v2
