@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"text/template"
+	"time"
 
 	"github.com/ryadavDeqode/nomad-driver-ray/templates"
 )
@@ -61,71 +62,100 @@ func (c rayRestClient) DescribeCluster(ctx context.Context) error {
 	return nil
 }
 
-// RunTask satisfies the ecs.rayRestInterface RunTask interface function.
+// generateScript generates a Python script from a given template and task configuration.
+func generateScript(tmplContent string, task interface{}) (string, error) {
+	tmpl, err := template.New("pythonScript").Parse(tmplContent)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse template: %w", err)
+	}
+
+	var script bytes.Buffer
+	err = tmpl.Execute(&script, task)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute template: %w", err)
+	}
+
+	return script.String(), nil
+}
+
+// submitJob submits a job to the Ray cluster and handles the HTTP request and response.
+func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmissionID string) (string, error) {
+	// Build the request payload
+	payload := map[string]interface{}{
+		"entrypoint":  entrypoint,
+		"runtime_env": map[string]interface{}{},
+		"job_id":      nil,
+		"metadata":    map[string]string{"job_submission_id": jobSubmissionID},
+	}
+
+	// Convert payload to JSON
+	payloadBytes, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal payload: %w", err)
+	}
+
+	// Create the HTTP request
+	url := fmt.Sprintf("%s/api/jobs/", endpoint)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(payloadBytes))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send the request
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read and process the response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Check for success
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("request failed with status: %s, response: %s", resp.Status, string(body))
+	}
+
+	return string(body), nil
+}
+
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-    // Parse the template string from the templates package
-    tmpl, err := template.New("pythonScript").Parse(templates.DummyTemplate)
-    if err != nil {
-        return "", fmt.Errorf("failed to parse template: %w", err)
-    }
+	scriptContent, err := generateScript(templates.DummyTemplate, cfg.Task)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate script: %w", err)
+	}
 
-    // Prepare a buffer to hold the generated script
-    var pythonScript bytes.Buffer
-
-    // Execute the template with the cfg.Task data
-    err = tmpl.Execute(&pythonScript, cfg.Task)
-    if err != nil {
-        return "", fmt.Errorf("failed to execute template: %w", err)
-    }
-
-	// Use triple quotes to pass the script with proper indentation
-	scriptContent := pythonScript.String()
-
-	// Triple-quote the entire script content
 	entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 
-    // Build the request payload
-    payload := map[string]interface{}{
-        "entrypoint":  entrypoint,
-        "runtime_env": map[string]interface{}{},
-        "job_id":      nil,
-        "metadata":    map[string]string{"job_submission_id": "127"},
-    }
+	response, err := submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
+	if err != nil {
+		return "", err
+	}
+	fmt.Println("Job submission response:", response)
 
-    // Convert payload to JSON
-    payloadBytes, err := json.Marshal(payload)
-    if err != nil {
-        return "", fmt.Errorf("failed to marshal payload: %w", err)
-    }
+	data := map[string]interface{}{
+		"ServerName": "AlfredRayServeAPI",
+	}
+	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate script: %w", err)
+	}
+	rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
+	response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
+	if err != nil {
+		fmt.Println("error submitting job:", err)
+	}
+	fmt.Println("Job submission response:", response)
 
-    // Create the HTTP request
-    url := fmt.Sprintf("%s/api/jobs/", cfg.Task.RayClusterEndpoint)
-    req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(payloadBytes))
-    if err != nil {
-        return "", fmt.Errorf("failed to create request: %w", err)
-    }
+	// Sleep for 3 seconds before returning
+	time.Sleep(5 * time.Second)
 
-    req.Header.Set("Content-Type", "application/json")
-
-    // Send the request
-    client := &http.Client{}
-    resp, err := client.Do(req)
-    if err != nil {
-        return "", fmt.Errorf("failed to send request: %w", err)
-    }
-    defer resp.Body.Close()
-
-    // Read and process the response
-    body, err := io.ReadAll(resp.Body)
-    if err != nil {
-        return "", fmt.Errorf("failed to read response body: %w", err)
-    }
-
-    // Check for success
-    if resp.StatusCode != http.StatusOK {
-        return "", fmt.Errorf("request failed with status: %s, response: %s", resp.Status, string(body))
-    }
-
-    // Return the actor name (assuming it's still provided in the config)
-    return cfg.Task.Actor, nil
+	// Process the response if needed, assuming the actor's name is returned
+	return cfg.Task.Actor, nil
 }
