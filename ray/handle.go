@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	// "strings"
 	"sync"
@@ -237,8 +238,21 @@ func (h *taskHandle) run() {
 		}
 	}()
 
-	url := GlobalConfig.TaskConfig.Task.RayServeEndpoint + "/api/actor-status"
-	logs_url := GlobalConfig.TaskConfig.Task.RayServeEndpoint + "/api/actor-logs"
+	// Parse the RayClusterEndpoint and update the port to 8001 for the Ray Serve endpoint.
+	rayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	parsedURL, err := url.Parse(rayClusterEndpoint)
+	if err != nil {
+		h.handleRunError(err, "failed to parse RayClusterEndpoint")
+		return
+	}
+
+	// Change the port to 8001 for Ray Serve endpoint
+	parsedURL.Host = parsedURL.Hostname() + ":8001"
+	rayServeEndpoint := parsedURL.String()
+
+	// Set the actor status and logs URLs
+	url := rayServeEndpoint + "/api/actor-status"
+	logs_url := rayServeEndpoint + "/api/actor-logs"
 	actorID := GlobalConfig.TaskConfig.Task.Actor
 
 	// Counter for tracking consecutive not ALIVE statuses.
@@ -266,10 +280,12 @@ func (h *taskHandle) run() {
 		} else {
 			notAliveCount = 0
 		}
+
 		actorLogs, err := GetActorLogs(h.ctx, logs_url, actorID)
-		if err!= nil {
-            fmt.Println("Error retrieving actor logs. Exiting...")
-        }
+		if err != nil {
+			fmt.Println("Error retrieving actor logs. Exiting...")
+		}
+
 		// Sleep for a specified interval before checking again
 		select {
 		case <-time.After(2 * time.Second):
@@ -281,12 +297,12 @@ func (h *taskHandle) run() {
 			if _, err := fmt.Fprintf(f, "[%s] - actorStatus\n", actorStatus); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
 			}
-			if _, err := fmt.Fprintf(f, "[%s] - actorId\n", actorID); err != nil {
+			if _, err := fmt.Fprintf(f, "[%s] - actorId\n", logs_url); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
 			}
-			if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err!= nil {
-                h.handleRunError(err, "failed to write to stdout")
-            }
+			if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err != nil {
+				h.handleRunError(err, "failed to write to stdout")
+			}
 		case <-h.ctx.Done():
 			// Handle context cancellation
 			fmt.Println("Context cancelled. Exiting...")
