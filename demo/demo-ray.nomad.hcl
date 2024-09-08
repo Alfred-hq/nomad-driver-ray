@@ -1,11 +1,11 @@
 # Copyright (c) HashiCorp, Inc.
 # SPDX-License-Identifier: MPL-2.0
 
-job "nrj11" {
+job "nrj1" {
   datacenters = ["dc1"]
 
   group "ray-remote-task-demo" {
-    count = 5
+    count = 1
     restart {
       attempts = 0
       mode     = "fail"
@@ -23,7 +23,8 @@ job "nrj11" {
         task {
           namespace            = "public91"
           ray_cluster_endpoint = ""
-          ray_serve_endpoint = ""
+          max_actor_restarts   = "2"
+          max_task_retries     = "2"
           actor                = "test_actor"
           runner               = "runner"
         }
