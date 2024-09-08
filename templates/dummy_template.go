@@ -5,7 +5,7 @@ const DummyTemplate = `
 import ray
 import time
 
-@ray.remote
+@ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
     def __init__(self):
         self.value = 0
