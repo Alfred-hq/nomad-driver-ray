@@ -17,7 +17,7 @@ job "nrj1" {
 
     task "ray-server" {
       driver       = "rayRest"
-      kill_timeout = "1m" // increased from default to accomodate ECS.
+      kill_timeout = "1m"
 
       config {
         task {
