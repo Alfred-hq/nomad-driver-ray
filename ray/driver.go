@@ -75,6 +75,8 @@ var (
 		"ray_cluster_endpoint": hclspec.NewAttr("ray_cluster_endpoint", "string", false),
 		"max_actor_restarts":   hclspec.NewAttr("max_actor_restarts", "string", false),
 		"max_task_retries":     hclspec.NewAttr("max_task_retries", "string", false),
+		"pipeline_file_path":   hclspec.NewAttr("pipeline_file_path", "string", false),
+		"pipeline_runner":      hclspec.NewAttr("pipeline_runner", "string", false),
 		"actor":                hclspec.NewAttr("actor", "string", false),
 		"runner":               hclspec.NewAttr("runner", "string", false),
 	})
@@ -149,6 +151,8 @@ type RayTaskConfig struct {
 	RayClusterEndpoint string `codec:"ray_cluster_endpoint"`
 	MaxActorRestarts   string `codec:"max_actor_restarts"`
 	MaxTaskRetries     string `codec:"max_task_retries"`
+	PipelineFilePath   string `codec:"pipeline_file_path"`
+	PipelineRunner      string `codec:"pipeline_runner"`
 	Actor              string `codec:"actor"`
 	Runner             string `codec:"runner"`
 }
