@@ -126,7 +126,7 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 }
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-	scriptContent, err := generateScript(templates.DummyTemplate, cfg.Task)
+	scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate script: %w", err)
 	}

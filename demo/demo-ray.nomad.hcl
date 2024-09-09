@@ -25,6 +25,8 @@ job "nrj1" {
           ray_cluster_endpoint = ""
           max_actor_restarts   = "2"
           max_task_retries     = "2"
+          pipeline_file_path   = "/home/deq/AlfredMLWorks/tt.py"
+          pipeline_runner      = "print_datetime_forever"
           actor                = "test_actor"
           runner               = "runner"
         }
