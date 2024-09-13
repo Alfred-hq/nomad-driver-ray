@@ -238,17 +238,8 @@ func (h *taskHandle) run() {
 		}
 	}()
 
-	// Parse the RayClusterEndpoint and update the port to 8001 for the Ray Serve endpoint.
-	rayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
-	parsedURL, err := url.Parse(rayClusterEndpoint)
-	if err != nil {
-		h.handleRunError(err, "failed to parse RayClusterEndpoint")
-		return
-	}
-
-	// Change the port to 8001 for Ray Serve endpoint
-	parsedURL.Host = parsedURL.Hostname() + ":8001"
-	rayServeEndpoint := parsedURL.String()
+	// Parse the RayServeEndpoint and update the port to 8001 for the Ray Serve endpoint.
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 
 	// Set the actor status and logs URLs
 	url := rayServeEndpoint + "/api/actor-status"

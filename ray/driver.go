@@ -71,14 +71,15 @@ var (
 	// awsECSTaskConfigSpec are the high level configuration options for
 	// configuring and ECS task.
 	rayRestTaskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
-		"namespace":            hclspec.NewAttr("namespace", "string", false),
-		"ray_cluster_endpoint": hclspec.NewAttr("ray_cluster_endpoint", "string", false),
-		"max_actor_restarts":   hclspec.NewAttr("max_actor_restarts", "string", false),
-		"max_task_retries":     hclspec.NewAttr("max_task_retries", "string", false),
-		"pipeline_file_path":   hclspec.NewAttr("pipeline_file_path", "string", false),
-		"pipeline_runner":      hclspec.NewAttr("pipeline_runner", "string", false),
-		"actor":                hclspec.NewAttr("actor", "string", false),
-		"runner":               hclspec.NewAttr("runner", "string", false),
+		"namespace":              hclspec.NewAttr("namespace", "string", false),
+		"ray_cluster_endpoint":   hclspec.NewAttr("ray_cluster_endpoint", "string", false),
+		"ray_serve_api_endpoint": hclspec.NewAttr("ray_serve_api_endpoint", "string", false),
+		"max_actor_restarts":     hclspec.NewAttr("max_actor_restarts", "string", false),
+		"max_task_retries":       hclspec.NewAttr("max_task_retries", "string", false),
+		"pipeline_file_path":     hclspec.NewAttr("pipeline_file_path", "string", false),
+		"pipeline_runner":        hclspec.NewAttr("pipeline_runner", "string", false),
+		"actor":                  hclspec.NewAttr("actor", "string", false),
+		"runner":                 hclspec.NewAttr("runner", "string", false),
 	})
 
 	// // awsECSNetworkConfigSpec is the network configuration for the task.
@@ -149,6 +150,8 @@ type TaskConfig struct {
 type RayTaskConfig struct {
 	Namespace          string `codec:"namespace"`
 	RayClusterEndpoint string `codec:"ray_cluster_endpoint"`
+	RayServeEndpoint   string `codec:"ray_serve_api_endpoint"`
+	
 	MaxActorRestarts   string `codec:"max_actor_restarts"`
 	MaxTaskRetries     string `codec:"max_task_retries"`
 	PipelineFilePath   string `codec:"pipeline_file_path"`
