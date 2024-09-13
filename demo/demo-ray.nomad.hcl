@@ -21,14 +21,15 @@ job "nrj1" {
 
       config {
         task {
-          namespace            = "public91"
-          ray_cluster_endpoint = ""
-          max_actor_restarts   = "2"
-          max_task_retries     = "2"
-          pipeline_file_path   = "/root/AlfredMLWorks/flyte_projects/gmx_v2/workflows/v2_trades_workflow.py"
-          pipeline_runner      = "v2_trades_workflow_runner"
-          actor                = "v2_trades_workflow_runner"
-          runner               = "runner"
+          namespace              = "public91"
+          ray_cluster_endpoint   = ""
+          ray_serve_api_endpoint = ""
+          max_actor_restarts     = "2"
+          max_task_retries       = "2"
+          pipeline_file_path     = "/root/AlfredMLWorks/flyte_projects/gmx_v2/workflows/v2_trades_workflow.py"
+          pipeline_runner        = "v2_trades_workflow_runner"
+          actor                  = "v2_trades_workflow_runner"
+          runner                 = "runner"
         }
       }
     }
