@@ -1,29 +1,25 @@
 package templates
 
 const RayServeAPITemplate = `
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
-from ray import serve
+from flask import Flask, request, jsonify
 import subprocess
 
-app = FastAPI()
+app = Flask(__name__)
 
-@serve.deployment(route_prefix=\"/api\")
-@serve.ingress(app)
 class {{.ServerName}}:
     def __init__(self):
         pass
 
-    @app.post(\"/actor-status\")
-    async def actor_status(self, request: Request):
-        if request.headers.get(\"content-type\") != \"application/json\":
-            raise HTTPException(status_code=400, detail=\"Request must be JSON\")
+    @app.route(\"/api/actor-status\"/, methods=[\"/POST\"/])
+    def actor_status():
+        if request.content_type != \"application/json\":
+            return jsonify({\"detail\": \"Request must be JSON\"}), 400
 
-        data = await request.json()
+        data = request.get_json()
         actor_id = data.get(\"actor_id\")
 
         if not actor_id:
-            raise HTTPException(status_code=400, detail=\"No actor_id provided\")
+            return jsonify({\"detail\": \"No actor_id provided\"}), 400
     
         try:
             command = f\"ray list actors | grep {actor_id}\"
@@ -35,23 +31,23 @@ class {{.ServerName}}:
                 processed_output = ' '.join(result.stdout.strip().split())
                 actor_status = processed_output.split(' ')[3] if len(processed_output.split(' ')) >= 4 else \"Unavailable\"
                 print(actor_status)
-                return {\"status\": \"success\", \"actor_status\": actor_status}
+                return jsonify({\"status\": \"success\", \"actor_status\": actor_status})
             else:
-                return {\"status\": \"error\", \"error\": result.stderr.strip()}
+                return jsonify({\"status\": \"error\", \"error\": result.stderr.strip()}), 500
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=\"Failed to get actor\")
+            return jsonify({\"status\": \"error\", \"detail\": \"Failed to get actor\"}), 500
 
-    @app.post(\"/actor-logs\")
-    async def actor_logs(self, request: Request):
-        if request.headers.get(\"content-type\") != \"application/json\":
-            raise HTTPException(status_code=400, detail=\"Request must be JSON\")
+    @app.route(\"/api/actor-logs\"/, methods=[\"/POST\"/])
+    def actor_logs():
+        if request.content_type != \"application/json\":
+            return jsonify({\"detail\": \"Request must be JSON\"}), 400
 
-        data = await request.json()
+        data = request.get_json()
         actor_id = data.get(\"actor_id\")
 
         if not actor_id:
-            raise HTTPException(status_code=400, detail=\"No actor_id provided\")
+            return jsonify({\"detail\": \"No actor_id provided\"}), 400
 
         try:
             command = f\"ray list actors | grep {actor_id}\"
@@ -63,23 +59,20 @@ class {{.ServerName}}:
                 processed_output = ' '.join(result.stdout.strip().split())
                 id = processed_output.split(' ')[1] if len(processed_output.split(' ')) >= 4 else \"Unavailable\"
 
-            command = f\"ray logs actor --id {id} --tail 100\"
-            result = subprocess.run(
-                command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-            )
+                command = f\"ray logs actor --id {id} --tail 100\"
+                result = subprocess.run(
+                    command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+                )
 
-            if result.returncode == 0:
-                return {\"status\": \"success\", \"logs\": result.stdout.strip()}
-            else:
-                return {\"status\": \"error\", \"error\": result.stderr.strip()}
+                if result.returncode == 0:
+                    return jsonify({\"status\": \"success\", \"logs\": result.stdout.strip()})
+                else:
+                    return jsonify({\"status\": \"error\", \"error\": result.stderr.strip()}), 500
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=\"Failed to get actor logs\")
+            return jsonify({\"status\": \"error\", \"detail\": \"Failed to get actor logs\"}), 500
 
-# Deploy the model
-serve.run({{.ServerName}}.bind())
 
-if __name__ == '__main__':
-    import uvicorn
-    uvicorn.run(app, host=\"/0.0.0.0\", port=8001)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000)
 `
