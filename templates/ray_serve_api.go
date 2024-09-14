@@ -10,7 +10,7 @@ class {{.ServerName}}:
     def __init__(self):
         pass
 
-    @app.route(\"/api/actor-status\"/, methods=[\"/POST\"/])
+    @app.route(\"/api/actor-status\", methods=[\"/POST\"])
     def actor_status():
         if request.content_type != \"application/json\":
             return jsonify({\"detail\": \"Request must be JSON\"}), 400
@@ -38,7 +38,7 @@ class {{.ServerName}}:
         except Exception as e:
             return jsonify({\"status\": \"error\", \"detail\": \"Failed to get actor\"}), 500
 
-    @app.route(\"/api/actor-logs\"/, methods=[\"/POST\"/])
+    @app.route(\"/api/actor-logs\", methods=[\"/POST\"])
     def actor_logs():
         if request.content_type != \"application/json\":
             return jsonify({\"detail\": \"Request must be JSON\"}), 400
