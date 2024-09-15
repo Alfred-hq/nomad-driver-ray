@@ -72,5 +72,5 @@ class {{.ServerName}}:
         except Exception as e:
             return jsonify({\"status\": \"error\", \"detail\": \"Failed to get actor logs\"}), 500
 
-app.run(host=\"/127.0.0.1\", port=8000)
+app.run()
 `
