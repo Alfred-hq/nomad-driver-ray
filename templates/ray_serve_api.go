@@ -7,8 +7,6 @@ from ray import serve
 import subprocess
 
 app = FastAPI()
-
-serve.shutdown()
 serve.start(detached=True, http_options={\"host\": \"0.0.0.0\", \"port\": 8000})
 
 @serve.deployment(route_prefix=\"/api\")
