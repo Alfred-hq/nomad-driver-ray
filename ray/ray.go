@@ -128,9 +128,11 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
 	scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to generate script: %w", err)
 		return "", fmt.Errorf("failed to generate script: %w", err)
 	}
-
+	fmt.Println("Inside RunTask")
+	
 	entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 
 	response, err := submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
