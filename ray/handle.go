@@ -279,7 +279,7 @@ func (h *taskHandle) run() {
 
 		// Sleep for a specified interval before checking again
 		select {
-		case <-time.After(2 * time.Second):
+		case <-time.After(10 * time.Second):
 			// Continue checking after 2 seconds
 			now := time.Now().Format(time.RFC3339)
 			if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
