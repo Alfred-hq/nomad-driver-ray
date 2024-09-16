@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"text/template"
 	"time"
-
+	"os"
 	"github.com/ryadavDeqode/nomad-driver-ray/templates"
 )
 
