@@ -223,7 +223,7 @@ func (h *taskHandle) run() {
 	defer close(h.doneCh)
 	h.stateLock.Lock()
 	if h.exitResult == nil {
-		fmt.Fprintf(os.Stderr, "Exit result is null")
+		fmt.Fprintf(f, "Exit result is null")
 		h.exitResult = &drivers.ExitResult{}
 	}
 	h.stateLock.Unlock()
@@ -236,7 +236,7 @@ func (h *taskHandle) run() {
 	}
 	defer func() {
 		if err := f.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "failed to close task stdout handle correctly")
+			fmt.Fprintf(f, "failed to close task stdout handle correctly")
 			h.logger.Error("failed to close task stdout handle correctly", "error", err)
 		}
 	}()
@@ -259,7 +259,7 @@ func (h *taskHandle) run() {
 		// Call the GetActorStatus function
 		actorStatus, err := GetActorStatus(h.ctx, url, actorID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error retrieving actor status. Exiting...")
+			fmt.Fprintf(f, "Error retrieving actor status. Exiting...")
 			fmt.Println("Error retrieving actor status. Exiting...")
 			return
 		}
@@ -267,7 +267,7 @@ func (h *taskHandle) run() {
 		// Check if the status is still ALIVE
 		if actorStatus != "ALIVE" {
 			notAliveCount++
-			fmt.Fprintf(os.Stderr, "Actor status is not ALIVE, count: %d\n", notAliveCount)
+			fmt.Fprintf(f, "Actor status is not ALIVE, count: %d\n", notAliveCount)
 			fmt.Printf("Actor status is not ALIVE, count: %d\n", notAliveCount)
 			if notAliveCount >= 3 {
 				fmt.Println("Actor is no longer ALIVE after 3 attempts. Exiting...")
@@ -281,7 +281,7 @@ func (h *taskHandle) run() {
 		fmt.Println("Getting Actor Logs")
 		actorLogs, err := GetActorLogs(h.ctx, logs_url, actorID)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error retrieving actor logs. Exiting...")
+			fmt.Fprintf(f, "Error retrieving actor logs. Exiting...")
 			fmt.Println("Error retrieving actor logs. Exiting...")
 		}
 
@@ -343,7 +343,7 @@ func (h *taskHandle) handleRunError(err error, context string) {
 	h.completedAt = time.Now()
 	h.exitResult.ExitCode = 1
 	h.exitResult.Err = fmt.Errorf("%s: %v", context, err)
-	fmt.Fprintf(os.Stderr, "%s: %v", context, err)
+	fmt.Fprintf(f, "%s: %v", context, err)
 	h.stateLock.Unlock()
 }
 
