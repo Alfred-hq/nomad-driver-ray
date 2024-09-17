@@ -15,7 +15,6 @@ import (
 	// "strings"
 	"sync"
 	"time"
-	"os"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/stats"
@@ -222,14 +221,15 @@ func (h *taskHandle) run() {
 	fmt.Println("Inside Run")
 	defer close(h.doneCh)
 	h.stateLock.Lock()
+	// Open the tasks StdoutPath so we can write task health status updates.
+	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 	if h.exitResult == nil {
 		fmt.Fprintf(f, "Exit result is null")
 		h.exitResult = &drivers.ExitResult{}
 	}
 	h.stateLock.Unlock()
 
-	// Open the tasks StdoutPath so we can write task health status updates.
-	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
+
 	if err != nil {
 		h.handleRunError(err, "failed to open task stdout path")
 		return
@@ -343,7 +343,6 @@ func (h *taskHandle) handleRunError(err error, context string) {
 	h.completedAt = time.Now()
 	h.exitResult.ExitCode = 1
 	h.exitResult.Err = fmt.Errorf("%s: %v", context, err)
-	fmt.Fprintf(f, "%s: %v", context, err)
 	h.stateLock.Unlock()
 }
 
