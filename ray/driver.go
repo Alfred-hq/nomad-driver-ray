@@ -65,6 +65,12 @@ var (
 	// taskConfigSpec represents an ECS task configuration object.
 	// https://docs.aws.amazon.com/AmazonECS/latest/developerguide/scheduling_tasks.html
 	taskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
+		"task": hclspec.NewBlock("task", false, rayRestTaskConfigSpec),
+	})
+
+	// awsECSTaskConfigSpec are the high level configuration options for
+	// configuring and ECS task.
+	rayRestTaskConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
 		"namespace":              hclspec.NewAttr("namespace", "string", false),
 		"ray_cluster_endpoint":   hclspec.NewAttr("ray_cluster_endpoint", "string", false),
 		"ray_serve_api_endpoint": hclspec.NewAttr("ray_serve_api_endpoint", "string", false),
@@ -75,7 +81,6 @@ var (
 		"actor":                  hclspec.NewAttr("actor", "string", false),
 		"runner":                 hclspec.NewAttr("runner", "string", false),
 	})
-
 
 	// // awsECSNetworkConfigSpec is the network configuration for the task.
 	// awsECSNetworkConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
