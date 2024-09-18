@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"text/template"
 	"time"
-	"os"
 	"github.com/ryadavDeqode/nomad-driver-ray/templates"
 )
 
@@ -29,6 +28,10 @@ type rayRestInterface interface {
 	// provided configuration. Any errors are
 	// returned to the caller.
 	RunTask(ctx context.Context, cfg TaskConfig) (string, error)
+
+	RunServeTask(ctx context.Context, cfg TaskConfig) (string, error)
+
+	GetRayServeHealth(ctx context.Context) (string, error)
 
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
@@ -161,7 +164,7 @@ func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
 }
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-
+	var response ActorStatusResponse
 	scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate script: %w", err)

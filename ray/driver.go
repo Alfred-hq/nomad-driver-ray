@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
 	pstructs "github.com/hashicorp/nomad/plugins/shared/structs"
 	"github.com/ryadavDeqode/nomad-driver-ray/version"
+	"github.com/hashicorp/nomad/client/lib/fifo"
 )
 
 const (
@@ -326,10 +327,10 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	handle.Config = cfg
 	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(cfg.AllocID, "-", "")
 
-	rayServeHealth, rayServeHealthErr := d.client.GetRayServeHealth(context.Background())
+	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background())
 	var runServeTaskErr error
 	if rayServeHealthErr != nil {
-		res, runServeTaskErr := d.client.RunServeTask(context.Background(), driverConfig)
+		_, runServeTaskErr := d.client.RunServeTask(context.Background(), driverConfig)
 	}
 
 	actor, err := d.client.RunTask(context.Background(), driverConfig)
