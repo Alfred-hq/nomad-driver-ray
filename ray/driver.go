@@ -362,8 +362,8 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
-	fmt.Fprintf(f, "[%s] - rayServeHealthErr\n", rayServeHealthErr)
-	fmt.Fprintf(f, "[%s] - runServeTaskErr\n", runServeTaskErr)
+	fmt.Fprintf(f, "Ray Serve Health - [%s] \n", rayServeHealthErr)
+	fmt.Fprintf(f, "Ray Serve Task - [%s]\n", runServeTaskErr)
 
 	go h.run()
 	return handle, nil, nil

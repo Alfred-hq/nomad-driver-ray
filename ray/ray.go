@@ -140,7 +140,7 @@ func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to check ray serve health: %w", err)
+		return "", fmt.Errorf("failed to check ray serve health: %w %s", err, url)
 	}
 	defer resp.Body.Close()
 
