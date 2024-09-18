@@ -130,7 +130,7 @@ func GetRayServeHealth(ctx context.Context) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/health"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -161,7 +161,13 @@ func GetRayServeHealth(ctx context.Context) (string, error) {
 }
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
+	fmt.Println("Inside RunTask")
+	var response string
+    var err error
+
 	rayServeHealth, err := GetRayServeHealth(ctx)
+	fmt.Println("Ray serve health:", rayServeHealth)
+
 	if err != nil {
 		data := map[string]interface{}{
 			"ServerName": "AlfredRayServeAPI",
@@ -170,8 +176,8 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		if err != nil {
 			return "", fmt.Errorf("failed to generate script: %w", err)
 		}
-		rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
-		response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
+        rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
+        response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
 		if err != nil {
 			fmt.Println("error submitting job:", err)
 		}
@@ -183,17 +189,16 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		fmt.Fprintf(os.Stderr, "failed to generate script: %w", err)
 		return "", fmt.Errorf("failed to generate script: %w", err)
 	}
-	fmt.Println("Inside RunTask")
 	
 	entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 
-	response, err := submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
+	response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
 	if err != nil {
 		return "", err
 	}
 	fmt.Println("Job submission response:", response)
 
-	// Sleep for 3 seconds before returning
+	// Sleep for 5 seconds before returning
 	time.Sleep(5 * time.Second)
 
 	// Process the response if needed, assuming the actor's name is returned
