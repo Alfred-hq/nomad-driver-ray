@@ -15,6 +15,11 @@ class {{.ServerName}}:
     def __init__(self):
         pass
 
+    @app.get(\"/health\")
+    async def actor_status(self, request: Request):
+        return {\"status\": \"ok\"}
+
+       
     @app.post(\"/actor-status\")
     async def actor_status(self, request: Request):
         if request.headers.get(\"content-type\") != \"application/json\":
