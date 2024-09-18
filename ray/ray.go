@@ -164,7 +164,6 @@ func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
 }
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-	var response ActorStatusResponse
 	scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate script: %w", err)
@@ -172,7 +171,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 	
 	entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 
-	response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
+	_, err := submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
 	if err != nil {
 		return "", err
 	}
@@ -193,7 +192,7 @@ func (c rayRestClient) RunServeTask(ctx context.Context, cfg TaskConfig) (string
 		return "", fmt.Errorf("failed to generate ray serve script: %w", err)
 	}
 	rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
-	response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
+	response, err := submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
 	if err != nil {
 		return "", fmt.Errorf("failed to submit ray serve job: %w", err)
 	}

@@ -330,7 +330,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background())
 	var runServeTaskErr error
 	if rayServeHealthErr != nil {
-		_, runServeTaskErr := d.client.RunServeTask(context.Background(), driverConfig)
+		_, runServeTaskErr = d.client.RunServeTask(context.Background(), driverConfig)
 	}
 
 	actor, err := d.client.RunTask(context.Background(), driverConfig)
