@@ -126,7 +126,7 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 }
 
 // GetRayServeHealth sends a GET request to the specified URL
-func GetRayServeHealth(ctx context.Context) (string, error) {
+func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/health"
 
@@ -161,32 +161,9 @@ func GetRayServeHealth(ctx context.Context) (string, error) {
 }
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-	fmt.Println("Inside RunTask")
-	var response string
-    var err error
-
-	rayServeHealth, err := GetRayServeHealth(ctx)
-	fmt.Println("Ray serve health:", rayServeHealth)
-
-	if err != nil {
-		data := map[string]interface{}{
-			"ServerName": "AlfredRayServeAPI",
-		}
-		rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate script: %w", err)
-		}
-        rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
-        response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
-		if err != nil {
-			fmt.Println("error submitting job:", err)
-		}
-		fmt.Println("Job submission response:", response)
-	}
 
 	scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to generate script: %w", err)
 		return "", fmt.Errorf("failed to generate script: %w", err)
 	}
 	
@@ -196,11 +173,28 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 	if err != nil {
 		return "", err
 	}
-	fmt.Println("Job submission response:", response)
-
 	// Sleep for 5 seconds before returning
 	time.Sleep(5 * time.Second)
 
 	// Process the response if needed, assuming the actor's name is returned
 	return cfg.Task.Actor, nil
 }
+
+
+func (c rayRestClient) RunServeTask(ctx context.Context, cfg TaskConfig) (string, error) {
+	data := map[string]interface{}{
+		"ServerName": "AlfredRayServeAPI",
+	}
+	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate ray serve script: %w", err)
+	}
+	rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
+	response, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
+	if err != nil {
+		return "", fmt.Errorf("failed to submit ray serve job: %w", err)
+	}
+
+	return "", nil
+}
+
