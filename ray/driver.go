@@ -327,7 +327,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	handle.Config = cfg
 	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(cfg.AllocID, "-", "")
 
-	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background())
+	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background(), driverConfig)
 	var runServeTaskErr error
 	if rayServeHealthErr != nil {
 		_, runServeTaskErr = d.client.RunServeTask(context.Background(), driverConfig)

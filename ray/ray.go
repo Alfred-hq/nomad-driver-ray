@@ -31,7 +31,7 @@ type rayRestInterface interface {
 
 	RunServeTask(ctx context.Context, cfg TaskConfig) (string, error)
 
-	GetRayServeHealth(ctx context.Context) (string, error)
+	GetRayServeHealth(ctx context.Context, cfg TaskConfig) (string, error)
 
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
@@ -129,8 +129,8 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 }
 
 // GetRayServeHealth sends a GET request to the specified URL
-func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+func (c rayRestClient) GetRayServeHealth(ctx context.Context, cfg TaskConfig) (string, error) {
+	rayServeEndpoint := cfg.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/health"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
