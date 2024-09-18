@@ -192,7 +192,7 @@ func (c rayRestClient) RunServeTask(ctx context.Context, cfg TaskConfig) (string
 		return "", fmt.Errorf("failed to generate ray serve script: %w", err)
 	}
 	rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
-	_, err := submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
+	_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
 	if err != nil {
 		return "", fmt.Errorf("failed to submit ray serve job: %w", err)
 	}
