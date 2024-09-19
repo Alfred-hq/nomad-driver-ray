@@ -5,9 +5,12 @@ from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from ray import serve
 import subprocess
+import ray
 
 app = FastAPI()
 serve.start(detached=True, http_options={\"host\": \"0.0.0.0\", \"port\": 8000})
+
+ray.init(address=\"auto\", namespace={{.Namespace}})
 
 @serve.deployment(route_prefix=\"/api\")
 @serve.ingress(app)
@@ -78,6 +81,19 @@ class {{.ServerName}}:
                 return {\"status\": \"success\", \"logs\": result.stdout.strip()}
             else:
                 return {\"status\": \"error\", \"error\": result.stderr.strip()}
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=\"Failed to get actor logs\")
+            
+    @app.delete(\"/kill-actor\")
+    async def kill_actor(self, actor_id: str = Query(...)):
+        if not actor_id:
+            raise HTTPException(status_code=400, detail=\"No actor_id provided\")
+
+        try:
+            actor = ray.get_actor(actor_id)
+            ray.kill(actor)
+            return {\"status\": \"success\"}
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=\"Failed to get actor logs\")
