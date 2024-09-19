@@ -383,8 +383,6 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	d.logger.Info("ray task started", "actor", driverState.Actor, "started_at", driverState.StartedAt)
 
-	fmt.Fprintf(f, "ray task started")
-
 	h := newTaskHandle(d.logger, driverState, cfg, d.client)
 
 	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
@@ -393,21 +391,27 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		return nil, nil, fmt.Errorf("failed to open FIFO writer: %v", err)
 	}
 
+	fmt.Fprintf(f, "ray task started\n")
+
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
 	if err := d.StartRayServeApi(driverConfig); err != nil {
-		return nil, nil, fmt.Fprintf(f, "failed to start Ray Serve API: %v", err)
+		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
+		return nil, nil, fmt.Errorf("failed to start Ray Serve API: %v", err)
 	}
 
 	// Start the task
 	actor, err := d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
-		return nil, nil, fmt.Fprintf(f, "failed to start ray task: %v", err)
+		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
+		return nil, nil, fmt.Errorf("failed to start ray task: %v", err)
 	}
 
+	// driverState.Actor = actor
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)
 		h.stop(false)
-		return nil, nil, fmt.Fprintf(f, "failed to set driver state: %v", err)
+		fmt.Fprintf(f, "failed to set driver state: %v\n", err)
+		return nil, nil, fmt.Errorf("failed to set driver state: %v", err)
 	}
 
 	d.tasks.Set(cfg.ID, h)
@@ -415,7 +419,6 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		DriverConfig: cfg,
 		TaskConfig:   driverConfig,
 	}
-
 
 	go h.run()
 
