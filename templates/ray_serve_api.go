@@ -10,7 +10,7 @@ import ray
 app = FastAPI()
 serve.start(detached=True, http_options={\"host\": \"0.0.0.0\", \"port\": 8000})
 
-ray.init(address=\"auto\", namespace={{.Namespace}})
+ray.init(address=\"auto\")
 
 @serve.deployment(route_prefix=\"/api\")
 @serve.ingress(app)
@@ -91,7 +91,7 @@ class {{.ServerName}}:
             raise HTTPException(status_code=400, detail=\"No actor_id provided\")
 
         try:
-            actor = ray.get_actor(actor_id)
+            actor = ray.get_actor(name=actor_id, namespace={{.Namespace}})
             ray.kill(actor)
             return {\"status\": \"success\"}
 
