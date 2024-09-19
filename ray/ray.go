@@ -197,7 +197,7 @@ func (c rayRestClient) DeleteActor(ctx context.Context, cfg TaskConfig) (string,
 		return "", fmt.Errorf("error from server: %s", response.Error)
 	}
 
-	return response.detail, nil
+	return response.Status, nil
 }
 
 
