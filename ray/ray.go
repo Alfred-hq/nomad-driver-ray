@@ -167,7 +167,7 @@ func (c rayRestClient) GetRayServeHealth(ctx context.Context, cfg TaskConfig) (s
 }
 
 // DeleteActor sends a DELETE request to the specified URL
-func (c rayRestClient) DeleteActor(ctx context.Context, actor_id) (string, error) {
+func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
 
