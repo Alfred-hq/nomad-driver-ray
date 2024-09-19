@@ -325,7 +325,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	d.logger.Info("starting ray remote task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
-	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(cfg.AllocID, "-", "")
+	driverConfig.Task.Actor = cfg.ID
 
 	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background(), driverConfig)
 	var runServeTaskErr error
@@ -426,11 +426,11 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 		fmt.Fprintf(f, "Failed to open writer while stopping \n")
 	}
 
-	_, err = d.client.DeleteActor(context.Background(), handle.taskConfig)
+	_, err = d.client.DeleteActor(context.Background(), taskID)
 
 
 	if err != nil {
-		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", handle.taskConfig.Task.Actor, err)
+		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", taskID, err)
 	} else {
 		fmt.Fprintf(f, "remote task stopped - [%s]\n", taskID)
 	}

@@ -33,7 +33,7 @@ type rayRestInterface interface {
 
 	GetRayServeHealth(ctx context.Context, cfg TaskConfig) (string, error)
 
-	DeleteActor(ctx context.Context, cfg TaskConfig) (string, error)
+	DeleteActor(ctx context.Context, actor_id string) (string, error)
 
 
 	// // StopTask stops the running ECS task, adding a custom message which can
@@ -167,9 +167,9 @@ func (c rayRestClient) GetRayServeHealth(ctx context.Context, cfg TaskConfig) (s
 }
 
 // DeleteActor sends a DELETE request to the specified URL
-func (c rayRestClient) DeleteActor(ctx context.Context, cfg TaskConfig) (string, error) {
-	rayServeEndpoint := cfg.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + cfg.Task.Actor
+func (c rayRestClient) DeleteActor(ctx context.Context, actor_id) (string, error) {
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
 
 	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
