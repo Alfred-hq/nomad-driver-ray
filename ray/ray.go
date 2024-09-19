@@ -186,7 +186,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 func (c rayRestClient) RunServeTask(ctx context.Context, cfg TaskConfig) (string, error) {
 	data := map[string]interface{}{
 		"ServerName": "AlfredRayServeAPI",
-		"Namespace": cfg.Task.Namespace
+		"Namespace": cfg.Task.Namespace,
 	}
 	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
 	if err != nil {
