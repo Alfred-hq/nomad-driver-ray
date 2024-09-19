@@ -10,8 +10,6 @@ import ray
 app = FastAPI()
 serve.start(detached=True, http_options={\"host\": \"0.0.0.0\", \"port\": 8000})
 
-ray.init(address=\"auto\")
-
 @serve.deployment(route_prefix=\"/api\")
 @serve.ingress(app)
 class {{.ServerName}}:
