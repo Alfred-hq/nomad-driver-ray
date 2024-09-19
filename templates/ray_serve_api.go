@@ -1,12 +1,13 @@
 package templates
 
 const RayServeAPITemplate = `
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, Query
 from fastapi.responses import JSONResponse
 from ray import serve
 import subprocess
 import ray
 
+serve.shutdown()
 app = FastAPI()
 serve.start(detached=True, http_options={\"host\": \"0.0.0.0\", \"port\": 8000})
 
