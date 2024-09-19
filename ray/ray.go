@@ -213,8 +213,8 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 	if err != nil {
 		return "", err
 	}
-	// Sleep for 5 seconds before returning
-	time.Sleep(5 * time.Second)
+	// Sleep for 10 seconds before returning
+	time.Sleep(10 * time.Second)
 
 	// Process the response if needed, assuming the actor's name is returned
 	return cfg.Task.Actor, nil
@@ -235,6 +235,8 @@ func (c rayRestClient) RunServeTask(ctx context.Context, cfg TaskConfig) (string
 	if err != nil {
 		return "", fmt.Errorf("failed to submit ray serve job: %w", err)
 	}
+
+	time.Sleep(10 * time.Second)
 
 	return "", nil
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"sync"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/structs"
@@ -105,6 +106,12 @@ var (
 		RemoteTasks: true,
 	}
 	GlobalConfig GlobalTaskConfig
+
+	rayServeMutex sync.Mutex
+	rayServeCond = sync.NewCond(&rayServeMutex) // Condition variable based on mutex
+	isRayServeApiStarted bool
+	isRayServeApiRunning bool // To track if it's currently being executed
+	
 )
 
 // Driver is a driver for running ECS containers
@@ -308,6 +315,47 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	return nil
 }
 
+
+func (d *Driver) StartRayServeApi(driverConfig TaskConfig) error {
+    rayServeMutex.Lock() // Lock to protect the shared state
+    defer rayServeMutex.Unlock()
+
+    if isRayServeApiStarted {
+        return nil // Ray Serve API already started, no need to run again
+    }
+
+    if isRayServeApiRunning {
+        rayServeCond.Wait() // Wait for the first goroutine to finish
+        return nil // Once done waiting, just return since it's already started
+    }
+
+    // Mark that Ray Serve API is running so others wait
+    isRayServeApiRunning = true
+
+    // Now, start Ray Serve API
+    d.logger.Info("Starting Ray Serve API...")
+
+    _, err := d.client.GetRayServeHealth(context.Background(), driverConfig)
+    if err != nil {
+        _, err = d.client.RunServeTask(context.Background(), driverConfig)
+        if err == nil {
+            isRayServeApiStarted = true
+            d.logger.Info("Ray Serve API started successfully")
+        } else {
+            d.logger.Error("Failed to start Ray Serve API", "error", err)
+        }
+    } else {
+        isRayServeApiStarted = true
+        d.logger.Info("Ray Serve API already running")
+    }
+
+    // Ray Serve API startup has completed, notify other waiting goroutines
+    isRayServeApiRunning = false
+    rayServeCond.Broadcast() // Wake up all waiting goroutines
+
+    return err
+}
+
 func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drivers.DriverNetwork, error) {
 	if !d.config.Enabled {
 		return nil, nil, fmt.Errorf("disabled")
@@ -327,32 +375,39 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	handle.Config = cfg
 	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(cfg.AllocID, "-", "")
 
-	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background(), driverConfig)
-	var runServeTaskErr error
-	if rayServeHealthErr != nil {
-		_, runServeTaskErr = d.client.RunServeTask(context.Background(), driverConfig)
-	}
-
-	actor, err := d.client.RunTask(context.Background(), driverConfig)
-
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to start ray task: %v", err)
-	}
-
 	driverState := TaskState{
 		TaskConfig: cfg,
 		StartedAt:  time.Now(),
-		Actor:      actor,
+		Actor:      driverConfig.Task.Actor,
 	}
 
 	d.logger.Info("ray task started", "actor", driverState.Actor, "started_at", driverState.StartedAt)
 
+	fmt.Fprintf(f, "ray task started")
+
 	h := newTaskHandle(d.logger, driverState, cfg, d.client)
+
+	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open FIFO writer: %v", err)
+	}
+
+	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
+	if err := d.StartRayServeApi(driverConfig); err != nil {
+		return nil, nil, fmt.Fprintf(f, "failed to start Ray Serve API: %v", err)
+	}
+
+	// Start the task
+	actor, err := d.client.RunTask(context.Background(), driverConfig)
+	if err != nil {
+		return nil, nil, fmt.Fprintf(f, "failed to start ray task: %v", err)
+	}
 
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)
 		h.stop(false)
-		return nil, nil, fmt.Errorf("failed to set driver state: %v", err)
+		return nil, nil, fmt.Fprintf(f, "failed to set driver state: %v", err)
 	}
 
 	d.tasks.Set(cfg.ID, h)
@@ -361,17 +416,9 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		TaskConfig:   driverConfig,
 	}
 
-	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
-	
-	if rayServeHealthErr != nil {
-		fmt.Fprintf(f, "Ray Serve Health - [%s] \n", rayServeHealthErr)
-	}
-	if runServeTaskErr != nil {
-		fmt.Fprintf(f, "Ray Serve Task - [%s]\n", runServeTaskErr)
-	}
-
 
 	go h.run()
+
 	return handle, nil, nil
 }
 
