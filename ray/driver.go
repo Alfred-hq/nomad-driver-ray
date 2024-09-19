@@ -444,7 +444,7 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	select {
 	case <-handle.doneCh:
 	case <-time.After(timeout):
-		return fmt.Errorf(f, "timed out waiting for remote task (id=%s) to stop (detach=%t)",
+		return fmt.Errorf("timed out waiting for remote task (id=%s) to stop (detach=%t)",
 			taskID, detach)
 	}
 
