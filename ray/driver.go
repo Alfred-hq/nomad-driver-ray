@@ -426,11 +426,11 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 		fmt.Fprintf(f, "Failed to open writer while stopping \n")
 	}
 
-	_, err = d.client.DeleteActor(context.Background(), GlobalConfig.TaskConfig)
+	_, err = d.client.DeleteActor(context.Background(), h.taskConfig)
 
 
 	if err != nil {
-		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", GlobalConfig.TaskConfig.Task.Actor, err)
+		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", h.taskConfig.Task.Actor, err)
 	} else {
 		fmt.Fprintf(f, "remote task stopped - [%s]\n", taskID)
 	}
