@@ -325,7 +325,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	d.logger.Info("starting ray remote task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
-	driverConfig.Task.Actor = strings.ReplaceAll(cfg.ID, "/", "_") 
+	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(cfg.AllocID, "-", "")
 
 	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background(), driverConfig)
 	var runServeTaskErr error
@@ -414,6 +414,17 @@ func (d *Driver) handleWait(ctx context.Context, handle *taskHandle, ch chan *dr
 	}
 }
 
+func getActorId(taskID string) string {
+	parts := strings.Split(taskID, "/")
+	if len(parts) != 3 {
+		return "Invalid input format"
+	}
+	alloc := parts[0]
+	workflow := parts[1]
+
+	return fmt.Sprintf("%s_%s", workflow, strings.ReplaceAll(alloc, "-", ""))
+}
+
 func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) error {
 	d.logger.Info("stopping remote task", "task_id", taskID, "timeout", timeout, "signal", signal)
 	handle, ok := d.tasks.Get(taskID)
@@ -425,14 +436,14 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	if err != nil {
 		fmt.Fprintf(f, "Failed to open writer while stopping \n")
 	}
-	actor_id := strings.ReplaceAll(taskID, "/", "_")
-	_, err = d.client.DeleteActor(context.Background(), actor_id)
+	actorId := getActorId(taskID)
+	_, err = d.client.DeleteActor(context.Background(), actorId)
 
 
 	if err != nil {
-		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actor_id, err)
+		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorId, err)
 	} else {
-		fmt.Fprintf(f, "remote task stopped - [%s]\n", actor_id)
+		fmt.Fprintf(f, "remote task stopped - [%s]\n", actorId)
 	}
 
 
