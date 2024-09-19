@@ -33,6 +33,9 @@ type rayRestInterface interface {
 
 	GetRayServeHealth(ctx context.Context, cfg TaskConfig) (string, error)
 
+	DeleteActor(ctx context.Context, cfg TaskConfig) (string, error)
+
+
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
 	// // performed the action.
@@ -162,6 +165,41 @@ func (c rayRestClient) GetRayServeHealth(ctx context.Context, cfg TaskConfig) (s
 
 	return response.Status, nil
 }
+
+// DeleteActor sends a DELETE request to the specified URL
+func (c rayRestClient) DeleteActor(ctx context.Context, cfg TaskConfig) (string, error) {
+	rayServeEndpoint := cfg.Task.RayServeEndpoint
+	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + cfg.Task.Actor
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create delete request: %w", err)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to delete actor: %w %s", err, url)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var response ActorStatusResponse
+	err = json.Unmarshal(responseBody, &response)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if response.Status != "ok" {
+		return "", fmt.Errorf("error from server: %s", response.Error)
+	}
+
+	return response.Status, nil
+}
+
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
 	scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)

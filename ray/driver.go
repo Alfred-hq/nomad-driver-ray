@@ -432,7 +432,14 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 		return fmt.Errorf("timed out waiting for remote task (id=%s) to stop (detach=%t)",
 			taskID, detach)
 	}
+	_, rayServeHealthErr := d.client.DeleteActor(context.Background(), GlobalConfig.TaskConfig)
 
+	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
+
+	if rayServeHealthErr != nil {
+		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", GlobalConfig.TaskConfig.Task.Actor, runServeTaskErr)
+	}
+	fmt.Fprintf(f, "remote task stopped - [%s]\n", taskID)
 	d.logger.Info("remote task stopped", "task_id", taskID, "timeout", timeout, "signal", signal)
 	return nil
 }
