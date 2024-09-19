@@ -6,7 +6,7 @@ package ray
 import (
 	"context"
 	"fmt"
-	// "strings"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -325,7 +325,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	d.logger.Info("starting ray remote task", "driver_cfg", hclog.Fmt("%+v", driverConfig))
 	handle := drivers.NewTaskHandle(taskHandleVersion)
 	handle.Config = cfg
-	driverConfig.Task.Actor = cfg.ID
+	driverConfig.Task.Actor = strings.ReplaceAll(cfg.ID, "/", "_") 
 
 	_, rayServeHealthErr := d.client.GetRayServeHealth(context.Background(), driverConfig)
 	var runServeTaskErr error
@@ -425,14 +425,14 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	if err != nil {
 		fmt.Fprintf(f, "Failed to open writer while stopping \n")
 	}
-
-	_, err = d.client.DeleteActor(context.Background(), taskID)
+	actor_id := strings.ReplaceAll(taskID, "/", "_")
+	_, err = d.client.DeleteActor(context.Background(), actor_id)
 
 
 	if err != nil {
-		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", taskID, err)
+		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actor_id, err)
 	} else {
-		fmt.Fprintf(f, "remote task stopped - [%s]\n", taskID)
+		fmt.Fprintf(f, "remote task stopped - [%s]\n", actor_id)
 	}
 
 
