@@ -400,7 +400,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	// Start the task
-	_, err := d.client.RunTask(context.Background(), driverConfig)
+	_, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
 		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
 		return nil, nil, fmt.Errorf("failed to start ray task: %v", err)
