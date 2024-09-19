@@ -423,15 +423,18 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
 
 	if err != nil {
-		return fmt.Fprintf(f, "Failed to open writer while stopping \n")
+		fmt.Fprintf(f, "Failed to open writer while stopping \n")
 	}
+
 	_, err = d.client.DeleteActor(context.Background(), GlobalConfig.TaskConfig)
 
 
 	if err != nil {
-		return fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", GlobalConfig.TaskConfig.Task.Actor, err)
+		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", GlobalConfig.TaskConfig.Task.Actor, err)
+	} else {
+		fmt.Fprintf(f, "remote task stopped - [%s]\n", taskID)
 	}
-	fmt.Fprintf(f, "remote task stopped - [%s]\n", taskID)
+
 
 	// Detach if that's the signal, otherwise proceed to terminate
 	detach := signal == drivers.DetachSignal
@@ -441,7 +444,7 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	select {
 	case <-handle.doneCh:
 	case <-time.After(timeout):
-		return fmt.Fprintf(f, "timed out waiting for remote task (id=%s) to stop (detach=%t)",
+		return fmt.Errorf(f, "timed out waiting for remote task (id=%s) to stop (detach=%t)",
 			taskID, detach)
 	}
 
