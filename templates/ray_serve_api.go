@@ -95,7 +95,7 @@ class {{.ServerName}}:
             return {\"status\": \"success\"}
 
         except Exception as e:
-            raise HTTPException(status_code=500, detail=\"Failed to get actor logs\")
+            raise HTTPException(status_code=500, detail=f\"Failed to kill actor: {str(e)}\")
 
 # Deploy the model
 serve.run({{.ServerName}}.bind())
