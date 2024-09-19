@@ -90,7 +90,7 @@ class {{.ServerName}}:
             raise HTTPException(status_code=400, detail=\"No actor_id provided\")
 
         try:
-            actor = ray.get_actor(name=actor_id, namespace={{.Namespace}})
+            actor = ray.get_actor(name=f\"{actor_id}\", namespace=\"{{.Namespace}}\")
             ray.kill(actor)
             return {\"status\": \"success\"}
 
