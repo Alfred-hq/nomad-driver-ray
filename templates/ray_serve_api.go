@@ -92,7 +92,7 @@ class {{.ServerName}}:
         try:
             actor = ray.get_actor(name=f\"{actor_id}\", namespace=\"{{.Namespace}}\")
             ray.kill(actor)
-            return {\"status\": \"success\"}
+            return {\"status\": \"success\", \"detail\": f\"{actor_id} deleted\"}
 
         except Exception as e:
             raise HTTPException(status_code=500, detail=f\"Failed to kill actor: {str(e)}\")

@@ -193,11 +193,11 @@ func (c rayRestClient) DeleteActor(ctx context.Context, cfg TaskConfig) (string,
 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	if response.Status != "ok" {
+	if response.Status != "success" {
 		return "", fmt.Errorf("error from server: %s", response.Error)
 	}
 
-	return response.Status, nil
+	return response.detail, nil
 }
 
 
