@@ -319,12 +319,20 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 func (d *Driver) StartRayServeApi(driverConfig TaskConfig, f io.WriteCloser) error {
     rayServeMutex.Lock() // Lock to protect the shared state
     defer rayServeMutex.Unlock()
-	fmt.Fprintf(f, "is ray serve started - : %t\n", isRayServeApiStarted)
+	fmt.Fprintf(f, "Is ray serve started - %t\n", isRayServeApiStarted)
+
+    _, err := d.client.GetRayServeHealth(context.Background(), driverConfig)
+
+	if err != nil {
+		fmt.Fprintf(f, "Refreshing serve deployment state - %t\n", isRayServeApiStarted)
+		isRayServeApiStarted = false
+	}
+
     if isRayServeApiStarted {
         return nil // Ray Serve API already started, no need to run again
     }
 
-	fmt.Fprintf(f, "is ray serve running - : %t\n", isRayServeApiRunning)
+	fmt.Fprintf(f, "is ray serve running -  %t\n", isRayServeApiRunning)
 
     if isRayServeApiRunning {
         rayServeCond.Wait() // Wait for the first goroutine to finish
@@ -333,9 +341,7 @@ func (d *Driver) StartRayServeApi(driverConfig TaskConfig, f io.WriteCloser) err
 
     // Mark that Ray Serve API is running so others wait
     isRayServeApiRunning = true
-	
 
-    _, err := d.client.GetRayServeHealth(context.Background(), driverConfig)
     if err != nil {
 		fmt.Fprintf(f, "Failed to Get Ray Serve Health - %v\n", err)
         _, err = d.client.RunServeTask(context.Background(), driverConfig)
