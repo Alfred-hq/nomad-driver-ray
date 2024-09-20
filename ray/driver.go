@@ -281,31 +281,32 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 }
 
 func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
-	d.logger.Info("recovering Ray task", "version", handle.Version,
-		"task_config.id", handle.Config.ID, "task_state", handle.State,
-		"driver_state_bytes", len(handle.DriverState))
 	if handle == nil {
 		return fmt.Errorf("handle cannot be nil")
 	}
 
+	f, err := fifo.OpenWriter(handle.Config.StdoutPath)
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to open FIFO writer: %v", err)
+	}
+
+	fmt.Fprintf(f, "Recovering Ray task - %s\n", handle.Config.ID)
+
 	// If the task is already attached to handle, there's nothing to recover.
 	if _, ok := d.tasks.Get(handle.Config.ID); ok {
-		d.logger.Info("no Ray task to recover; task already exists",
-			"task_id", handle.Config.ID,
-			"task_name", handle.Config.Name,
-		)
+		fmt.Fprintf(f, "No Ray task to recover; task already exists - %s\n", handle.Config.Name)
 		return nil
 	}
 
 	// The handle doesn't already exist, try to reattach
 	var taskState TaskState
 	if err := handle.GetDriverState(&taskState); err != nil {
-		d.logger.Error("failed to decode task state from handle", "error", err, "task_id", handle.Config.ID)
+		fmt.Fprintf(f, "Failed to decode task state from handle - %v\n", err)
 		return fmt.Errorf("failed to decode task state from handle: %v", err)
 	}
 
-	d.logger.Info("Ray task recovered", "actor", taskState.Actor,
-		"started_at", taskState.StartedAt)
+	fmt.Fprintf(f, "Ray task recovered \n", err)
 
 	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
@@ -332,7 +333,7 @@ func (d *Driver) StartRayServeApi(driverConfig TaskConfig, f io.WriteCloser) err
         return nil // Ray Serve API already started, no need to run again
     }
 
-	fmt.Fprintf(f, "is ray serve running -  %t\n", isRayServeApiRunning)
+	fmt.Fprintf(f, "Is ray serve running -  %t\n", isRayServeApiRunning)
 
     if isRayServeApiRunning {
         rayServeCond.Wait() // Wait for the first goroutine to finish
