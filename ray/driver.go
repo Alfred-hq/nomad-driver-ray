@@ -282,13 +282,13 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 
 func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	if handle == nil {
-		return fmt.Errorf("handle cannot be nil")
+		return fmt.Errorf("Handle cannot be nil")
 	}
 
 	f, err := fifo.OpenWriter(handle.Config.StdoutPath)
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to open FIFO writer: %v", err)
+		return fmt.Errorf("Failed to open FIFO writer: %v", err)
 	}
 
 	fmt.Fprintf(f, "Recovering Ray task - %s\n", handle.Config.ID)
