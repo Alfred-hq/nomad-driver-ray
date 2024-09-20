@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 	"sync"
-
+	"io"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/structs"
 	"github.com/hashicorp/nomad/drivers/shared/eventer"
@@ -316,13 +316,15 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 }
 
 
-func (d *Driver) StartRayServeApi(driverConfig TaskConfig) error {
+func (d *Driver) StartRayServeApi(driverConfig TaskConfig, f io.WriteCloser) error {
     rayServeMutex.Lock() // Lock to protect the shared state
     defer rayServeMutex.Unlock()
-
+	fmt.Fprintf(f, "is ray serve started - : %t\n", isRayServeApiStarted)
     if isRayServeApiStarted {
         return nil // Ray Serve API already started, no need to run again
     }
+
+	fmt.Fprintf(f, "is ray serve running - : %t\n", isRayServeApiRunning)
 
     if isRayServeApiRunning {
         rayServeCond.Wait() // Wait for the first goroutine to finish
@@ -331,22 +333,21 @@ func (d *Driver) StartRayServeApi(driverConfig TaskConfig) error {
 
     // Mark that Ray Serve API is running so others wait
     isRayServeApiRunning = true
-
-    // Now, start Ray Serve API
-    d.logger.Info("Starting Ray Serve API...")
+	
 
     _, err := d.client.GetRayServeHealth(context.Background(), driverConfig)
     if err != nil {
+		fmt.Fprintf(f, "Failed to Get Ray Serve Health - %v\n", err)
         _, err = d.client.RunServeTask(context.Background(), driverConfig)
         if err == nil {
             isRayServeApiStarted = true
-            d.logger.Info("Ray Serve API started successfully")
+			fmt.Fprintf(f, "Ray Serve API started successfully\n")
         } else {
-            d.logger.Error("Failed to start Ray Serve API", "error", err)
+			fmt.Fprintf(f, "Failed to start Ray Serve API - %v\n", err)
         }
     } else {
+		fmt.Fprintf(f, "Ray Serve API already running \n",)
         isRayServeApiStarted = true
-        d.logger.Info("Ray Serve API already running")
     }
 
     // Ray Serve API startup has completed, notify other waiting goroutines
@@ -394,7 +395,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	fmt.Fprintf(f, "ray task started\n")
 
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
-	if err := d.StartRayServeApi(driverConfig); err != nil {
+	if err := d.StartRayServeApi(driverConfig, f); err != nil {
 		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
 		return nil, nil, fmt.Errorf("failed to start Ray Serve API: %v", err)
 	}
