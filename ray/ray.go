@@ -204,7 +204,7 @@ func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
 	actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
 
-	if actorStatus != "ALIVE" {
+	if actorStatus != "ALIVE" || err != nil  {
 		scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate script: %w", err)

@@ -298,7 +298,7 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	if actorStatus != "ALIVE" {
 		fmt.Fprintf(f, "Actor is not alive %v \n", err)
-		d.tasks.Delete(taskID)
+		d.tasks.Delete(handle.Config.ID)
 		return fmt.Errorf("Actor is not alive %v \n", err)
 	} 
 
