@@ -281,16 +281,35 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 }
 
 func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
-	d.logger.Info("recovering Ray task", "version", handle.Version,
-		"task_config.id", handle.Config.ID, "task_state", handle.State,
-		"driver_state_bytes", len(handle.DriverState))
 	if handle == nil {
 		return fmt.Errorf("handle cannot be nil")
 	}
 
+	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
+
+	if err != nil {
+		return nil, nil, fmt.Errorf("Recover Task - failed to open FIFO writer: %v", err)
+	}
+
+	fmt.Fprintf(f, "recovering Ray task", "version", handle.Version,
+		"task_config.id", handle.Config.ID, "task_state", handle.State,
+		"driver_state_bytes", len(handle.DriverState)
+	)
+
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+	url := rayServeEndpoint + "/api/actor-status"
+	actorId := getActorId(taskID)
+	actorStatus, err = GetActorStatus(context.Background(), url, actorId)
+
+	if actorStatus != "ALIVE" {
+		fmt.Fprintf(f, "Actor is not alive %v", err)
+		d.tasks.Delete(taskID)
+		return fmt.Errorf("Actor is not alive %v", err)
+	} 
+
 	// If the task is already attached to handle, there's nothing to recover.
 	if _, ok := d.tasks.Get(handle.Config.ID); ok {
-		d.logger.Info("no Ray task to recover; task already exists",
+		fmt.Fprintf(f, "no Ray task to recover; task already exists",
 			"task_id", handle.Config.ID,
 			"task_name", handle.Config.Name,
 		)
@@ -300,12 +319,11 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	// The handle doesn't already exist, try to reattach
 	var taskState TaskState
 	if err := handle.GetDriverState(&taskState); err != nil {
-		d.logger.Error("failed to decode task state from handle", "error", err, "task_id", handle.Config.ID)
+		fmt.Fprintf(f, "failed to decode task state from handle", "error", err, "task_id", handle.Config.ID)
 		return fmt.Errorf("failed to decode task state from handle: %v", err)
 	}
 
-	d.logger.Info("Ray task recovered", "actor", taskState.Actor,
-		"started_at", taskState.StartedAt)
+	fmt.Fprintf(f, "Ray task recovered", "actor", taskState.Actor, "started_at", taskState.StartedAt)
 
 	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
