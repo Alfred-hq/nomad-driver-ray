@@ -285,16 +285,16 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 		return fmt.Errorf("handle cannot be nil")
 	}
 
-	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
+	f, err := fifo.OpenWriter(handle.Config.StdoutPath)
 
 	if err != nil {
-		return nil, nil, fmt.Errorf("Recover Task - failed to open FIFO writer: %v \n", err)
+		return fmt.Errorf("Recover Task - failed to open FIFO writer: %v \n", err)
 	}
 
 	fmt.Fprintf(f, "Recovering Ray task - %v \n", handle.Config.ID)
 
-	actorId := getActorId(taskID)
-	actorStatus, err = GetActorStatus(context.Background(), actorId)
+	actorId := getActorId(handle.Config.ID)
+	actorStatus, err := GetActorStatus(context.Background(), actorId)
 
 	if actorStatus != "ALIVE" {
 		fmt.Fprintf(f, "Actor is not alive %v \n", err)
