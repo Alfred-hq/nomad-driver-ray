@@ -281,41 +281,31 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 }
 
 func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
+	d.logger.Info("recovering Ray task", "version", handle.Version,
+		"task_config.id", handle.Config.ID, "task_state", handle.State,
+		"driver_state_bytes", len(handle.DriverState))
 	if handle == nil {
 		return fmt.Errorf("handle cannot be nil")
 	}
 
-	f, err := fifo.OpenWriter(handle.Config.StdoutPath)
-
-	if err != nil {
-		return fmt.Errorf("Recover Task - failed to open FIFO writer: %v \n", err)
-	}
-
-	fmt.Fprintf(f, "Recovering Ray task - %v \n", handle.Config.ID)
-
-	actorId := getActorId(handle.Config.ID)
-	actorStatus, err := GetActorStatus(context.Background(), actorId)
-
-	if actorStatus != "ALIVE" {
-		fmt.Fprintf(f, "Actor is not alive %v \n", err)
-		d.tasks.Delete(handle.Config.ID)
-		return fmt.Errorf("Actor is not alive %v \n", err)
-	} 
-
 	// If the task is already attached to handle, there's nothing to recover.
 	if _, ok := d.tasks.Get(handle.Config.ID); ok {
-		fmt.Fprintf(f, "No Ray task to recover; task already exists \n")
+		d.logger.Info("no Ray task to recover; task already exists",
+			"task_id", handle.Config.ID,
+			"task_name", handle.Config.Name,
+		)
 		return nil
 	}
 
 	// The handle doesn't already exist, try to reattach
 	var taskState TaskState
 	if err := handle.GetDriverState(&taskState); err != nil {
-		fmt.Fprintf(f, "failed to decode task state from handle - %v \n", err)
-		return fmt.Errorf("failed to decode task state from handle: %v \n", err)
+		d.logger.Error("failed to decode task state from handle", "error", err, "task_id", handle.Config.ID)
+		return fmt.Errorf("failed to decode task state from handle: %v", err)
 	}
 
-	fmt.Fprintf(f, "Ray task recovered \n")
+	d.logger.Info("Ray task recovered", "actor", taskState.Actor,
+		"started_at", taskState.StartedAt)
 
 	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
