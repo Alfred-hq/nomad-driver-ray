@@ -80,8 +80,11 @@ type ActorStatusResponse struct {
 }
 
 // GetActorLogs sends a POST request to retrieve logs of a specific actor
-func GetActorLogs(ctx context.Context, url, actorID string) (string, error) {
+func GetActorLogs(ctx context.Context, actorID string) (string, error) {
 	// Create the request payload
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+	url := rayServeEndpoint + "/api/actor-logs"
+
 	payload := ActorLogsRequest{ActorID: actorID}
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
@@ -127,8 +130,11 @@ func GetActorLogs(ctx context.Context, url, actorID string) (string, error) {
 }
 
 // GetActorStatus sends a POST request to the specified URL with the given actor_id
-func GetActorStatus(ctx context.Context, url, actorID string) (string, error) {
+func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 	// Create the request payload
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+	url := rayServeEndpoint + "/api/actor-status"
+
 	payload := ActorStatusRequest{ActorID: actorID}
 	jsonData, err := json.Marshal(payload)
 	if err != nil {
@@ -257,7 +263,7 @@ func (h *taskHandle) run() {
 		fmt.Println(url)
 		fmt.Println(actorID)
 		// Call the GetActorStatus function
-		actorStatus, err := GetActorStatus(h.ctx, url, actorID)
+		actorStatus, err := GetActorStatus(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. Exiting...")
 			fmt.Println("Error retrieving actor status. Exiting...")
@@ -279,7 +285,7 @@ func (h *taskHandle) run() {
 		}
 
 		fmt.Println("Getting Actor Logs")
-		actorLogs, err := GetActorLogs(h.ctx, logs_url, actorID)
+		actorLogs, err := GetActorLogs(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor logs. Exiting...")
 			fmt.Println("Error retrieving actor logs. Exiting...")

@@ -293,10 +293,8 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	fmt.Fprintf(f, "Recovering Ray task - %v \n", handle.Config.ID)
 
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/actor-status"
 	actorId := getActorId(taskID)
-	actorStatus, err = GetActorStatus(context.Background(), url, actorId)
+	actorStatus, err = GetActorStatus(context.Background(), actorId)
 
 	if actorStatus != "ALIVE" {
 		fmt.Fprintf(f, "Actor is not alive %v \n", err)

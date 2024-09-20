@@ -202,20 +202,24 @@ func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string
 
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-	scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate script: %w", err)
-	}
+	actorStatus, err = GetActorStatus(context.Background(), cfg.Task.Actor)
+
+	if actorStatus != "ALIVE" {
+		scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate script: %w", err)
+		}
+		
+		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
+
+		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
+		if err != nil {
+			return "", err
+		}
+		// Sleep for 10 seconds before returning
+		time.Sleep(10 * time.Second)
+	} 
 	
-	entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
-
-	_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
-	if err != nil {
-		return "", err
-	}
-	// Sleep for 10 seconds before returning
-	time.Sleep(10 * time.Second)
-
 	// Process the response if needed, assuming the actor's name is returned
 	return cfg.Task.Actor, nil
 }
