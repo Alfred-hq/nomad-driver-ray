@@ -267,7 +267,7 @@ func (h *taskHandle) run() {
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. Exiting...")
 			fmt.Println("Error retrieving actor status. Exiting...")
-			return
+			return // TODO: add a retry here
 		}
 		fmt.Println("Found Actor")
 		// Check if the status is still ALIVE

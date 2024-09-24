@@ -49,20 +49,20 @@ type rayRestClient struct {
 // DescribeCluster satisfies the DescribeCluster
 // interface function.
 func (c rayRestClient) DescribeCluster(ctx context.Context) error {
-	// // Construct the full URL with the IP and port
-	// url := fmt.Sprintf("%s/api/version", c.rayClusterEndpoint)
+	// Construct the full URL with the IP and port
+	url := fmt.Sprintf("%s/api/version", c.rayClusterEndpoint)
 
-	// // Make a GET request to the REST API
-	// resp, err := http.Get(url)
-	// if err != nil {
-	// 	return fmt.Errorf("failed to call ray API at %s: %v", url, err)
-	// }
-	// defer resp.Body.Close()
+	// Make a GET request to the REST API
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("failed to call ray API at %s: %v", url, err)
+	}
+	defer resp.Body.Close()
 
-	// // Check if the HTTP status code is not OK
-	// if resp.StatusCode != http.StatusOK {
-	// 	return fmt.Errorf("ray API request to %s failed with status code: %d", url, resp.StatusCode)
-	// }
+	// Check if the HTTP status code is not OK
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("ray API request to %s failed with status code: %d", url, resp.StatusCode)
+	}
 
 	// If the request is successful and the status code is 200 (OK)
 	return nil
