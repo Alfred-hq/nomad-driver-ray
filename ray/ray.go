@@ -50,7 +50,7 @@ type rayRestClient struct {
 // interface function.
 func (c rayRestClient) DescribeCluster(ctx context.Context) error {
 	// Construct the full URL with the IP and port
-	url := fmt.Sprintf("%s/api/version", c.rayClusterEndpoint)
+	url := fmt.Sprintf("http://localhost:8265/api/version")
 
 	// Make a GET request to the REST API
 	resp, err := http.Get(url)
