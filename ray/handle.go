@@ -252,48 +252,47 @@ func (h *taskHandle) run() {
 	actorID := GlobalConfig.TaskConfig.Task.Actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
 	
-	// Call the GetActorStatus function
-	actorStatus, err := GetActorStatus(h.ctx, actorID)
-	if err != nil {
-		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-		return // TODO: add a retry here
-	}
-
-	fmt.Fprintf(f, "Actor is running, Checking Status \n")
-	// Check if the status is still ALIVE
-	if actorStatus != "ALIVE" {
-		fmt.Fprintf(f, "Actor in not alive. \n")
-		return
-	} 
-
-	fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
-
-
-	actorLogs, err := GetActorLogs(h.ctx, actorID)
-	if err != nil {
-		fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
-	}
-
-	// Sleep for a specified interval before checking again
-	select {
-	case <-time.After(5 * time.Second):
-		// Continue checking after 2 seconds
-		now := time.Now().Format(time.RFC3339)
-		if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
-			h.handleRunError(err, "failed to write to stdout")
+	// Block until stopped, doing nothing in the meantime.
+	for {
+		// Call the GetActorStatus function
+		actorStatus, err := GetActorStatus(h.ctx, actorID)
+		if err != nil {
+			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
+			return // TODO: add a retry here
 		}
-		if _, err := fmt.Fprintf(f, "[%s] - actorStatus\n", actorStatus); err != nil {
-			h.handleRunError(err, "failed to write to stdout")
+		fmt.Fprintf(f, "Actor is running, Checking Status \n")
+		// Check if the status is still ALIVE
+		if actorStatus != "ALIVE" {
+			fmt.Fprintf(f, "Actor in not alive. \n")
+			return
 		}
-		if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err != nil {
-			h.handleRunError(err, "failed to write to stdout")
-		}
-	case <-h.ctx.Done():
-		// Handle context cancellation
-		fmt.Println("Context cancelled. Exiting...")
-		return
-	}
 
+		fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
+		actorLogs, err := GetActorLogs(h.ctx, actorID)
+		
+		if err != nil {
+			fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
+		}
+		// Sleep for a specified interval before checking again
+		select {
+		case <-time.After(5 * time.Second):
+			// Continue checking after 2 seconds
+			now := time.Now().Format(time.RFC3339)
+			if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
+				h.handleRunError(err, "failed to write to stdout")
+			}
+			if _, err := fmt.Fprintf(f, "[%s] - actorStatus\n", actorStatus); err != nil {
+				h.handleRunError(err, "failed to write to stdout")
+			}
+			if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err != nil {
+				h.handleRunError(err, "failed to write to stdout")
+			}
+		case <-h.ctx.Done():
+			// Handle context cancellation
+			fmt.Println("Context cancelled. Exiting...")
+			return
+		}
+	}
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()
 
