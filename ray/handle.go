@@ -253,12 +253,7 @@ func (h *taskHandle) run() {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 
 	// Set the actor status and logs URLs
-	url := rayServeEndpoint + "/api/actor-status"
-	logs_url := rayServeEndpoint + "/api/actor-logs"
 	actorID := GlobalConfig.TaskConfig.Task.Actor
-
-	// Counter for tracking consecutive not ALIVE statuses.
-	notAliveCount := 0
 
 	// Call the GetActorStatus function
 	actorStatus, err := GetActorStatus(h.ctx, actorID)
@@ -290,9 +285,6 @@ func (h *taskHandle) run() {
 			h.handleRunError(err, "failed to write to stdout")
 		}
 		if _, err := fmt.Fprintf(f, "[%s] - actorStatus\n", actorStatus); err != nil {
-			h.handleRunError(err, "failed to write to stdout")
-		}
-		if _, err := fmt.Fprintf(f, "[%s] - actorId\n", logs_url); err != nil {
 			h.handleRunError(err, "failed to write to stdout")
 		}
 		if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err != nil {
