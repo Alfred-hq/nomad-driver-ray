@@ -248,13 +248,10 @@ func (h *taskHandle) run() {
 			h.logger.Error("failed to close task stdout handle correctly", "error", err)
 		}
 	}()
-
-	// Parse the RayServeEndpoint and update the port to 8001 for the Ray Serve endpoint.
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-
 	// Set the actor status and logs URLs
 	actorID := GlobalConfig.TaskConfig.Task.Actor
-
+	fmt.Fprintf(f, "Actor - %s \n", actorID)
+	
 	// Call the GetActorStatus function
 	actorStatus, err := GetActorStatus(h.ctx, actorID)
 	if err != nil {
@@ -268,6 +265,7 @@ func (h *taskHandle) run() {
 		fmt.Fprintf(f, "Actor in not alive. \n")
 		return
 	} 
+
 	fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
 
 
