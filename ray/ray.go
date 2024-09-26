@@ -205,7 +205,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 	actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
 
 	if actorStatus != "ALIVE" || err != nil  {
-		scriptContent, err := generateScript(templates.PipelineRunnerTemplate, cfg.Task)
+		scriptContent, err := generateScript(templates.RayActorTemplate, cfg.Task)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate script: %w", err)
 		}
@@ -216,7 +216,21 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		if err != nil {
 			return "", err
 		}
-		// Sleep for 10 seconds before returning
+
+		time.Sleep(10 * time.Second)
+
+		scriptContent, err = generateScript(templates.RemoteRunnerTemplate, cfg.Task)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate runner script: %w", err)
+		}
+		
+		entrypoint = fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
+
+		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129")
+		if err != nil {
+			return "", err
+		}
+
 		time.Sleep(10 * time.Second)
 	} 
 	
