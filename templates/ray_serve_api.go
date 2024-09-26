@@ -34,7 +34,7 @@ class {{.ServerName}}:
             raise HTTPException(status_code=400, detail=\"No actor_id provided\")
     
         try:
-            command = f\"ray list actors --filter \"state=ALIVE\" | grep {actor_id}\"
+            command = f\"ray list actors --filter 'state=ALIVE' | grep {actor_id}\"
             result = subprocess.run(
                 command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
@@ -62,7 +62,7 @@ class {{.ServerName}}:
             raise HTTPException(status_code=400, detail=\"No actor_id provided\")
 
         try:
-            command = f\"ray list actors --filter \"state=ALIVE\" | grep {actor_id}\"
+            command = f\"ray list actors --filter 'state=ALIVE' | grep {actor_id}\"
             result = subprocess.run(
                 command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
             )
