@@ -217,7 +217,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 			return "", err
 		}
 
-		time.Sleep(10 * time.Second)
+		time.Sleep(30 * time.Second)
 
 		scriptContent, err = generateScript(templates.RemoteRunnerTemplate, cfg.Task)
 		if err != nil {
