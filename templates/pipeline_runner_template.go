@@ -30,5 +30,7 @@ ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
 
 pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_concurrency=2).remote()
 
+time.sleep(10)
+
 pipeline_runner.{{.Runner}}.remote()
 `
