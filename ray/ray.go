@@ -85,13 +85,12 @@ func generateScript(tmplContent string, task interface{}) (string, error) {
 }
 
 // submitJob submits a job to the Ray cluster and handles the HTTP request and response.
-func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmissionID string, actor string) (string, error) {
+func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmissionID string) (string, error) {
 	// Build the request payload
 	payload := map[string]interface{}{
 		"entrypoint":  entrypoint,
 		"runtime_env": map[string]interface{}{},
 		"job_id":      nil,
-		"submission_id": actor,
 		"metadata":    map[string]string{"job_submission_id": jobSubmissionID},
 	}
 
@@ -213,7 +212,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		
 		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 
-		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127", cfg.Task.Actor)
+		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
 		if err != nil {
 			return "", err
 		}
@@ -226,8 +225,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		}
 		
 		entrypoint = fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
-		id := "run_" + cfg.Task.Actor
-		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129", id)
+		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129")
 		if err != nil {
 			return "", err
 		}
