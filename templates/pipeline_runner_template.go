@@ -11,6 +11,7 @@ import importlib
 @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
 
+    @ray.method(enable_task_events=False)
     def {{.Runner}}(self):
         directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
 
@@ -28,7 +29,7 @@ class {{.Actor}}:
 # Initialize connection to the Ray head node on the default port.
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
 
-pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_concurrency=2).remote()
+pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_concurrency=2, num_cpus=1).remote()
 `
 
 const RemoteRunnerTemplate = `
