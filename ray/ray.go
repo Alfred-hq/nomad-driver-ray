@@ -226,8 +226,8 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		}
 		
 		entrypoint = fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
-
-		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129", cfg.Task.Actor)
+		id := "run_" + cfg.Task.Actor
+		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129", id)
 		if err != nil {
 			return "", err
 		}
