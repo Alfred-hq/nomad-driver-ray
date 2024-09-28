@@ -4,17 +4,22 @@ const RayServeAPITemplate = `
 from fastapi import FastAPI, Request, HTTPException, Query
 import subprocess
 import ray
+import uvicorn
 
 app = FastAPI()
-ray.init(address=\"auto\", namespace=\"{{.Namespace}}\", runtime_env={\"RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING\": 1}) 
 
 @app.get(\"/api/health\")
-async def health_check(self, request: Request):
+async def health_check():
+    \"""
+    Health check endpoint to ensure the server is running.
+    \"""
     return {\"status\": \"ok\"}
 
-    
 @app.post(\"/api/actor-status\")
-async def actor_status(self, request: Request):
+async def actor_status(request: Request):
+    \"""
+    Get the status of a specific actor based on the provided actor_id.
+    \"""
     if request.headers.get(\"content-type\") != \"application/json\":
         raise HTTPException(status_code=400, detail=\"Request must be JSON\")
 
@@ -23,7 +28,7 @@ async def actor_status(self, request: Request):
 
     if not actor_id:
         raise HTTPException(status_code=400, detail=\"No actor_id provided\")
-
+    
     try:
         command = f\"ray list actors --filter 'state=ALIVE' | grep {actor_id}\"
         result = subprocess.run(
@@ -33,16 +38,18 @@ async def actor_status(self, request: Request):
         if result.returncode == 0:
             processed_output = ' '.join(result.stdout.strip().split())
             actor_status = processed_output.split(' ')[3] if len(processed_output.split(' ')) >= 4 else \"Unavailable\"
-            print(actor_status)
             return {\"status\": \"success\", \"actor_status\": actor_status}
         else:
             return {\"status\": \"error\", \"error\": result.stderr.strip()}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=\"Failed to get actor\")
+        raise HTTPException(status_code=500, detail=\"Failed to get actor status\")
 
 @app.post(\"/api/actor-logs\")
-async def actor_logs(self, request: Request):
+async def actor_logs(request: Request):
+    \"""
+    Retrieve the logs of a specific actor based on the provided actor_id.
+    \"""
     if request.headers.get(\"content-type\") != \"application/json\":
         raise HTTPException(status_code=400, detail=\"Request must be JSON\")
 
@@ -75,8 +82,11 @@ async def actor_logs(self, request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=\"Failed to get actor logs\")
         
-@app.delete(\"/kill-actor\")
-async def kill_actor(self, actor_id: str = Query(...)):
+@app.delete(\"/api/kill-actor\")
+async def kill_actor(actor_id: str = Query(...)):
+    \"""
+    Kill a specific actor based on the provided actor_id.
+    \"""
     if not actor_id:
         raise HTTPException(status_code=400, detail=\"No actor_id provided\")
 
@@ -88,6 +98,6 @@ async def kill_actor(self, actor_id: str = Query(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f\"Failed to kill actor: {str(e)}\")
 
-if __name__ == "__main__":
+if __name__ == \"__main__\":
     uvicorn.run(app, host=\"0.0.0.0\", port=8000)
 `
