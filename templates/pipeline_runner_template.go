@@ -11,7 +11,6 @@ import importlib
 @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
 
-    @ray.method(enable_task_events=False)
     def {{.Runner}}(self):
         directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
 
