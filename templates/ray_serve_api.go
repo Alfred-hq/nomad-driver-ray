@@ -10,16 +10,10 @@ app = FastAPI()
 
 @app.get(\"/api/health\")
 async def health_check():
-    \"""
-    Health check endpoint to ensure the server is running.
-    \"""
     return {\"status\": \"ok\"}
 
 @app.post(\"/api/actor-status\")
 async def actor_status(request: Request):
-    \"""
-    Get the status of a specific actor based on the provided actor_id.
-    \"""
     if request.headers.get(\"content-type\") != \"application/json\":
         raise HTTPException(status_code=400, detail=\"Request must be JSON\")
 
@@ -47,9 +41,6 @@ async def actor_status(request: Request):
 
 @app.post(\"/api/actor-logs\")
 async def actor_logs(request: Request):
-    \"""
-    Retrieve the logs of a specific actor based on the provided actor_id.
-    \"""
     if request.headers.get(\"content-type\") != \"application/json\":
         raise HTTPException(status_code=400, detail=\"Request must be JSON\")
 
@@ -84,9 +75,6 @@ async def actor_logs(request: Request):
         
 @app.delete(\"/api/kill-actor\")
 async def kill_actor(actor_id: str = Query(...)):
-    \"""
-    Kill a specific actor based on the provided actor_id.
-    \"""
     if not actor_id:
         raise HTTPException(status_code=400, detail=\"No actor_id provided\")
 
