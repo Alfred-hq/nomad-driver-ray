@@ -2,7 +2,7 @@ package templates
 
 const RayServeAPITemplate = `
 from fastapi import FastAPI, Request, HTTPException, Query
-import subprocess
+import asyncio
 import ray
 import uvicorn
 
@@ -25,16 +25,17 @@ async def actor_status(request: Request):
     
     try:
         command = f\"ray list actors --filter 'state=ALIVE' | grep {actor_id}\"
-        result = subprocess.run(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        process = await asyncio.create_subprocess_shell(
+            command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
+        stdout, stderr = await process.communicate()
 
-        if result.returncode == 0:
-            processed_output = ' '.join(result.stdout.strip().split())
+        if process.returncode == 0:
+            processed_output = ' '.join(stdout.decode().strip().split())
             actor_status = processed_output.split(' ')[3] if len(processed_output.split(' ')) >= 4 else \"Unavailable\"
             return {\"status\": \"success\", \"actor_status\": actor_status}
         else:
-            return {\"status\": \"error\", \"error\": result.stderr.strip()}
+            return {\"status\": \"error\", \"error\": stderr.decode().strip()}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=\"Failed to get actor status\")
@@ -51,24 +52,29 @@ async def actor_logs(request: Request):
         raise HTTPException(status_code=400, detail=\"No actor_id provided\")
 
     try:
-        command = f\"ray list actors --filter 'state=ALIVE' | grep {actor_id}\"
-        result = subprocess.run(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+    command = f\"ray list actors --filter 'state=ALIVE' | grep {actor_id}\"
+    process = await asyncio.create_subprocess_shell(
+        command, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+    )
+    stdout, stderr = await process.communicate()
+
+    if process.returncode == 0:
+        processed_output = ' '.join(stdout.decode().strip().split())
+        id = processed_output.split(' ')[1] if len(processed_output.split(' ')) >= 4 else \"Unavailable\"
+
+        command_logs = f\"ray logs actor --id {id} --tail 100\"
+        process_logs = await asyncio.create_subprocess_shell(
+            command_logs, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )
+        stdout_logs, stderr_logs = await process_logs.communicate()
 
-        if result.returncode == 0:
-            processed_output = ' '.join(result.stdout.strip().split())
-            id = processed_output.split(' ')[1] if len(processed_output.split(' ')) >= 4 else \"Unavailable\"
-
-        command = f\"ray logs actor --id {id} --tail 100\"
-        result = subprocess.run(
-            command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-        )
-
-        if result.returncode == 0:
-            return {\"status\": \"success\", \"logs\": result.stdout.strip()}
+        if process_logs.returncode == 0:
+            return {\"status\": \"success\", \"logs\": stdout_logs.decode().strip()}
         else:
-            return {\"status\": \"error\", \"error\": result.stderr.strip()}
+            return {\"status\": \"error\", \"error\": stderr_logs.decode().strip()}
+
+    else:
+        return {\"status\": \"error\", \"error\": stderr.decode().strip()}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=\"Failed to get actor logs\")
