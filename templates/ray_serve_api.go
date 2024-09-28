@@ -4,6 +4,7 @@ const RayServeAPITemplate = `
 from fastapi import FastAPI, Request, HTTPException, Query
 import asyncio
 import uvicorn
+import ray
 
 app = FastAPI()
 
