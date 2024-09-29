@@ -292,12 +292,12 @@ func (h *taskHandle) run() {
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
 			fmt.Fprintf(f, "Killing exisiting actor.",)
-			_, err = d.client.DeleteActor(context.Background(), actorId)
+			_, err = DeleteActor(context.Background(), actorID)
 
 			if err != nil {
-				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorId, err)
+				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
 			} else {
-				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorId)
+				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
 			}
 		
 			return // TODO: add a retry here
