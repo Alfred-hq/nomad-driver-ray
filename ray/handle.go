@@ -180,6 +180,39 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 }
 
 
+func DeleteActor(ctx context.Context, actor_id string) (string, error) {
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
+
+	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create delete request: %w", err)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("failed to delete actor: %w %s", err, url)
+	}
+	defer resp.Body.Close()
+
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	var response ActorStatusResponse
+	err = json.Unmarshal(responseBody, &response)
+	if err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+
+	if response.Status != "success" {
+		return "", fmt.Errorf("error from server: %s", response.Error)
+	}
+
+	return response.Status, nil
+}
+
 
 func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig, rayRestInterface rayRestInterface) *taskHandle {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -258,13 +291,16 @@ func (h *taskHandle) run() {
 		actorStatus, err := GetActorStatus(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
+			fmt.Fprintf(f, "Killing exisiting actor.",)
+			_, err = d.client.DeleteActor(context.Background(), actorId)
+
+			if err != nil {
+				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorId, err)
+			} else {
+				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorId)
+			}
+		
 			return // TODO: add a retry here
-		}
-		fmt.Fprintf(f, "Actor is running, Checking Status \n")
-		// Check if the status is still ALIVE
-		if actorStatus != "ALIVE" {
-			fmt.Fprintf(f, "Actor in not alive. \n")
-			return
 		}
 
 		fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
