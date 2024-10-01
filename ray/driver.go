@@ -161,6 +161,7 @@ type RayTaskConfig struct {
 	RayServeEndpoint   string `codec:"ray_serve_api_endpoint"`
 	
 	MaxActorRestarts   string `codec:"max_actor_restarts"`
+	NumCPUs   		   string `codec:"num_cpus"`
 	MaxTaskRetries     string `codec:"max_task_retries"`
 	PipelineFilePath   string `codec:"pipeline_file_path"`
 	PipelineRunner      string `codec:"pipeline_runner"`
