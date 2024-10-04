@@ -78,6 +78,7 @@ var (
 		"ray_serve_api_endpoint": hclspec.NewAttr("ray_serve_api_endpoint", "string", false),
 		"max_actor_restarts":     hclspec.NewAttr("max_actor_restarts", "string", false),
 		"num_cpus":     		  hclspec.NewAttr("num_cpus", "string", false),
+		"memory":     		  	  hclspec.NewAttr("memory", "string", false),
 		"max_task_retries":       hclspec.NewAttr("max_task_retries", "string", false),
 		"pipeline_file_path":     hclspec.NewAttr("pipeline_file_path", "string", false),
 		"pipeline_runner":        hclspec.NewAttr("pipeline_runner", "string", false),
@@ -163,6 +164,7 @@ type RayTaskConfig struct {
 	
 	MaxActorRestarts   string `codec:"max_actor_restarts"`
 	NumCPUs   		   string `codec:"num_cpus"`
+	Memory			   string `codec:"memory"`
 	MaxTaskRetries     string `codec:"max_task_retries"`
 	PipelineFilePath   string `codec:"pipeline_file_path"`
 	PipelineRunner      string `codec:"pipeline_runner"`
