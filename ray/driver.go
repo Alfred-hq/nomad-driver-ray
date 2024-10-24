@@ -310,6 +310,11 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	fmt.Fprintf(f, "Ray task recovered \n", err)
 
+	if err := d.StartRayServeApi(f); err != nil {
+		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
+		return fmt.Errorf("failed to start Ray Serve API: %v", err)
+	}
+
 	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
 	d.tasks.Set(handle.Config.ID, h)
@@ -319,12 +324,12 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 }
 
 
-func (d *Driver) StartRayServeApi(driverConfig TaskConfig, f io.WriteCloser) error {
+func (d *Driver) StartRayServeApi(f io.WriteCloser) error {
     rayServeMutex.Lock() // Lock to protect the shared state
     defer rayServeMutex.Unlock()
 	fmt.Fprintf(f, "Is ray serve started - %t\n", isRayServeApiStarted)
 
-    _, err := d.client.GetRayServeHealth(context.Background(), driverConfig)
+    _, err := d.client.GetRayServeHealth(context.Background())
 
 	if err != nil {
 		fmt.Fprintf(f, "Refreshing serve deployment state - %t\n", isRayServeApiStarted)
@@ -347,7 +352,7 @@ func (d *Driver) StartRayServeApi(driverConfig TaskConfig, f io.WriteCloser) err
 
     if err != nil {
 		fmt.Fprintf(f, "Failed to Get Ray Serve Health - %v\n", err)
-        _, err = d.client.RunServeTask(context.Background(), driverConfig)
+        _, err = d.client.RunServeTask(context.Background())
         if err == nil {
             isRayServeApiStarted = true
 			fmt.Fprintf(f, "Ray Serve API started successfully\n")
@@ -404,7 +409,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	fmt.Fprintf(f, "ray task started\n")
 
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
-	if err := d.StartRayServeApi(driverConfig, f); err != nil {
+	if err := d.StartRayServeApi(f); err != nil {
 		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
 		return nil, nil, fmt.Errorf("failed to start Ray Serve API: %v", err)
 	}

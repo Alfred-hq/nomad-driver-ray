@@ -29,9 +29,9 @@ type rayRestInterface interface {
 	// returned to the caller.
 	RunTask(ctx context.Context, cfg TaskConfig) (string, error)
 
-	RunServeTask(ctx context.Context, cfg TaskConfig) (string, error)
+	RunServeTask(ctx context.Context) (string, error)
 
-	GetRayServeHealth(ctx context.Context, cfg TaskConfig) (string, error)
+	GetRayServeHealth(ctx context.Context) (string, error)
 
 	DeleteActor(ctx context.Context, actor_id string) (string, error)
 
@@ -132,8 +132,8 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 }
 
 // GetRayServeHealth sends a GET request to the specified URL
-func (c rayRestClient) GetRayServeHealth(ctx context.Context, cfg TaskConfig) (string, error) {
-	rayServeEndpoint := cfg.Task.RayServeEndpoint
+func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/health"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -238,17 +238,17 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 }
 
 
-func (c rayRestClient) RunServeTask(ctx context.Context, cfg TaskConfig) (string, error) {
+func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
 	data := map[string]interface{}{
 		"ServerName": "AlfredRayServeAPI",
-		"Namespace": cfg.Task.Namespace,
+		"Namespace": GlobalConfig.TaskConfig.Task.Namespace,
 	}
 	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate ray serve script: %w", err)
 	}
 	rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
-	_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
+	_, err = submitJob(ctx, GlobalConfig.TaskConfig.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
 	if err != nil {
 		return "", fmt.Errorf("failed to submit ray serve job: %w", err)
 	}
