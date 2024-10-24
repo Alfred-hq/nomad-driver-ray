@@ -407,6 +407,11 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	fmt.Fprintf(f, "ray task started\n")
+	
+	GlobalConfig = GlobalTaskConfig{
+		DriverConfig: cfg,
+		TaskConfig:   driverConfig,
+	}
 
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
 	if err := d.StartRayServeApi(f); err != nil {
@@ -430,10 +435,6 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	d.tasks.Set(cfg.ID, h)
-	GlobalConfig = GlobalTaskConfig{
-		DriverConfig: cfg,
-		TaskConfig:   driverConfig,
-	}
 
 	go h.run()
 
