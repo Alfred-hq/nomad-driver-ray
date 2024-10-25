@@ -258,7 +258,7 @@ func (h *taskHandle) IsRunning() bool {
 	return h.procState == drivers.TaskStateRunning
 }
 
-func (h *taskHandle) run(actorID string) {
+func (h *taskHandle) run() {
 	fmt.Println("Inside Run")
 	defer close(h.doneCh)
 	h.stateLock.Lock()
@@ -282,7 +282,7 @@ func (h *taskHandle) run(actorID string) {
 		}
 	}()
 	// Set the actor status and logs URLs
-	// actorID := GlobalConfig.TaskConfig.Task.Actor
+	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
 	
 	// Block until stopped, doing nothing in the meantime.
