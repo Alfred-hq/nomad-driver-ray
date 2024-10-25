@@ -436,7 +436,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	d.tasks.Set(cfg.ID, h)
 
-	go h.run()
+	go h.run(driverConfig.Task.Actor)
 
 	return handle, nil, nil
 }
