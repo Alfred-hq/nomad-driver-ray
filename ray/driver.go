@@ -317,6 +317,18 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
+	var driverConfig TaskConfig
+	if err := handle.Config.DecodeDriverConfig(&driverConfig); err != nil {
+		return nil, nil, fmt.Errorf("failed to decode driver config: %v", err)
+	}
+	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(handle.Config.AllocID, "-", "")
+
+	_, err = d.client.RunTask(context.Background(), driverConfig)
+	if err != nil {
+		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
+		return fmt.Errorf("failed to start ray task: %v", err)
+	}
+
 	d.tasks.Set(handle.Config.ID, h)
 
 	go h.run()
