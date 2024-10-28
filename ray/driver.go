@@ -319,7 +319,8 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	var driverConfig TaskConfig
 	if err := handle.Config.DecodeDriverConfig(&driverConfig); err != nil {
-		return nil, nil, fmt.Errorf("failed to decode driver config: %v", err)
+		fmt.Fprintf(f, "failed to decode driver config:: %v\n", err)
+		return fmt.Errorf("failed to decode driver config: %v", err)
 	}
 	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(handle.Config.AllocID, "-", "")
 
