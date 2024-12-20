@@ -47,10 +47,10 @@ async def main():
     try:
         # Get the actor
         actor = ray.get_actor(\"{{.Actor}}\")
-        result = await actor.{{.Runner}}.remote()
+        result = await actor.runner.remote()
         print(result)
     except Exception as e:
-        print(f"Error while executing runner: {e}")
+        print(e)
 
 asyncio.run(main())
 `
