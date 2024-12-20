@@ -7,22 +7,28 @@ import time
 import sys
 import os
 import importlib
+import asyncio
 
 @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
+    async def {{.Runner}}(self):
+        try:
+            directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
 
-    def {{.Runner}}(self):
-        directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
+            # Get the file name without the extension
+            file_name = os.path.splitext(os.path.basename(\"{{.PipelineFilePath}}\"))[0]
 
-        # Get the file name without the extension
-        file_name = os.path.splitext(os.path.basename(\"{{.PipelineFilePath}}\"))[0]
+            sys.path.append(directory_path)
 
-        sys.path.append(directory_path)
+            # Dynamically import the module
+            pipeline_module = importlib.import_module(file_name)
 
-        # Dynamically import the module
-        pipeline_module = importlib.import_module(file_name)
-
-        getattr(pipeline_module, \"{{.PipelineRunner}}\")()
+            # Execute the pipeline function
+            getattr(pipeline_module, \"{{.PipelineRunner}}\")()
+        except Exception as e:
+            print(e)
+        finally:
+            ray.actor.exit_actor()
 
 
 # Initialize connection to the Ray head node on the default port.
@@ -33,10 +39,18 @@ pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\",
 
 const RemoteRunnerTemplate = `
 import ray
-import time
+import asyncio
 
-ray.init(address=\"auto\", namespace=\"{{.Namespace}}\", runtime_env={\"RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING\": 1}) 
+ray.init(address=\"auto\", namespace=\"{{.Namespace}}\", runtime_env={\"RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING\": 1})
 
-actor = ray.get_actor(\"{{.Actor}}\")
-actor.runner.remote()
+async def main():
+    try:
+        # Get the actor
+        actor = ray.get_actor(\"{{.Actor}}\")
+        result = await actor.{{.Runner}}.remote()
+        print(result)
+    except Exception as e:
+        print(f"Error while executing runner: {e}")
+
+asyncio.run(main())
 `
