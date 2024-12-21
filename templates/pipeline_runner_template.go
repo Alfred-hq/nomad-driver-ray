@@ -7,11 +7,10 @@ import time
 import sys
 import os
 import importlib
-import asyncio
 
 @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
-    async def {{.Runner}}(self):
+    def {{.Runner}}(self):
         try:
             directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
 
@@ -39,20 +38,20 @@ pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\",
 
 const RemoteRunnerTemplate = `
 import ray
-import asyncio
 import time
 
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\", runtime_env={\"RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING\": 1})
 
-async def main():
+def main():
     try:
         # Get the actor
         actor = ray.get_actor(\"{{.Actor}}\")
-        result = await actor.runner.remote()
-        print(result)
+
+        # Trigger the actor's runner method without waiting for completion
+        actor.runner.remote()
     except Exception as e:
         print(e)
 
 if __name__ == \"__main__\":
-    asyncio.get_event_loop().run_until_complete(main())
+    main()
 `
