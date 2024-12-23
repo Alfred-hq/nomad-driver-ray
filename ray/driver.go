@@ -62,7 +62,7 @@ var (
 	// pluginConfigSpec is the hcl specification returned by the ConfigSchema RPC.
 	pluginConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
 		"enabled": hclspec.NewAttr("enabled", "bool", false),
-		"ray_cluster_endpoint": hclspec.NewAttr("ray_cluster_endpoint", "string", "http://localhost:8265"),
+		"ray_cluster_endpoint": hclspec.NewAttr("ray_cluster_endpoint", "string", false),
 	})
 
 	// taskConfigSpec represents an ECS task configuration object.
