@@ -62,6 +62,7 @@ var (
 	// pluginConfigSpec is the hcl specification returned by the ConfigSchema RPC.
 	pluginConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
 		"enabled": hclspec.NewAttr("enabled", "bool", false),
+		"ray_cluster_endpoint": hclspec.NewAttr("ray_cluster_endpoint", "string", "http://localhost:8265"),
 	})
 
 	// taskConfigSpec represents an ECS task configuration object.
@@ -148,7 +149,7 @@ type Driver struct {
 // DriverConfig is the driver configuration set by the SetConfig RPC call
 type DriverConfig struct {
 	Enabled            bool   `codec:"enabled"`
-	RayClusterEndpoint string `codec:"rayClusterEndpoint"`
+	RayClusterEndpoint string `codec:"ray_cluster_endpoint"`
 }
 
 // TaskConfig is the driver configuration of a task within a job
@@ -261,7 +262,7 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 	attrs := map[string]*pstructs.Attribute{}
 
 	if d.config.Enabled {
-		if err := d.client.DescribeCluster(ctx); err != nil {
+		if err := d.client.DescribeCluster(ctx, d.config.RayClusterEndpoint); err != nil {
 			health = drivers.HealthStateUnhealthy
 			desc = err.Error()
 			attrs["driver.ecs"] = pstructs.NewBoolAttribute(false)
@@ -338,8 +339,6 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 
 func (d *Driver) StartRayServeApi(f io.WriteCloser) error {
-    rayServeMutex.Lock() // Lock to protect the shared state
-    defer rayServeMutex.Unlock()
 	fmt.Fprintf(f, "Is ray serve started - %t\n", isRayServeApiStarted)
 
     _, err := d.client.GetRayServeHealth(context.Background())
@@ -352,6 +351,9 @@ func (d *Driver) StartRayServeApi(f io.WriteCloser) error {
     if isRayServeApiStarted {
         return nil // Ray Serve API already started, no need to run again
     }
+
+    rayServeMutex.Lock() // Lock to protect the shared state
+    defer rayServeMutex.Unlock()
 
 	fmt.Fprintf(f, "Is ray serve running -  %t\n", isRayServeApiRunning)
 

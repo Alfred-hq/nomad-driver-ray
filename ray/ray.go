@@ -22,7 +22,7 @@ type rayRestInterface interface {
 	// DescribeCluster is used to determine the health of the plugin by
 	// querying REST server for the cluster and checking its current status. A status
 	// other than ACTIVE is considered unhealthy.
-	DescribeCluster(ctx context.Context) error
+	DescribeCluster(ctx context.Context, endpoint string) error
 
 	// RunTask is used to trigger the running of a new RAY REST task based on the
 	// provided configuration. Any errors are
@@ -48,9 +48,9 @@ type rayRestClient struct {
 
 // DescribeCluster satisfies the DescribeCluster
 // interface function.
-func (c rayRestClient) DescribeCluster(ctx context.Context) error {
+func (c rayRestClient) DescribeCluster(ctx context.Context, endpoint string) error {
 	// Construct the full URL with the IP and port
-	url := fmt.Sprintf("http://localhost:8265/api/version")
+	url := fmt.Sprintf("%s/api/version", endpoint)
 
 	// Make a GET request to the REST API
 	resp, err := http.Get(url)
