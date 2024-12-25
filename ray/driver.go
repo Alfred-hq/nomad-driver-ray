@@ -148,6 +148,7 @@ type Driver struct {
 // DriverConfig is the driver configuration set by the SetConfig RPC call
 type DriverConfig struct {
 	Enabled            bool   `codec:"enabled"`
+	RayClusterEndpoint string `codec:"rayClusterEndpoint"`
 }
 
 // TaskConfig is the driver configuration of a task within a job
