@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os/exec"
 	"net/http"
 	"text/template"
 	"time"
@@ -22,7 +23,7 @@ type rayRestInterface interface {
 	// DescribeCluster is used to determine the health of the plugin by
 	// querying REST server for the cluster and checking its current status. A status
 	// other than ACTIVE is considered unhealthy.
-	DescribeCluster(ctx context.Context, endpoint string) error
+	DescribeCluster(ctx context.Context) error
 
 	// RunTask is used to trigger the running of a new RAY REST task based on the
 	// provided configuration. Any errors are
@@ -46,10 +47,34 @@ type rayRestClient struct {
 	rayClusterEndpoint string
 }
 
+func getTailscaleIP() (string, error) {
+	// Run the complete command with grep to get the IP directly
+	cmd := exec.Command("sh", "-c", "ip -4 addr show tailscale0 | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}'")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to get tailscale IP: %v", err)
+	}
+
+	// Trim any whitespace or newlines from the output
+	ip := strings.TrimSpace(string(output))
+	if ip == "" {
+		return "", fmt.Errorf("no IP address found for tailscale0 interface")
+	}
+
+	return ip, nil
+}
+
 // DescribeCluster satisfies the DescribeCluster
 // interface function.
-func (c rayRestClient) DescribeCluster(ctx context.Context, endpoint string) error {
+func (c rayRestClient) DescribeCluster(ctx context.Context) error {
 	// Construct the full URL with the IP and port
+	ip, err := getTailscaleIP()
+	if err != nil {
+		return fmt.Errorf("failed to get tailscale IP: %v", err)
+	}
+
+	// Construct the endpoint URL using the obtained IP
+	endpoint := fmt.Sprintf("http://%s:8265", ip)
 	url := fmt.Sprintf("%s/api/version", endpoint)
 
 	// Make a GET request to the REST API
@@ -217,7 +242,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 			return "", err
 		}
 
-		time.Sleep(30 * time.Second)
+		time.Sleep(20 * time.Second)
 
 		scriptContent, err = generateScript(templates.RemoteRunnerTemplate, cfg.Task)
 		if err != nil {

@@ -62,7 +62,6 @@ var (
 	// pluginConfigSpec is the hcl specification returned by the ConfigSchema RPC.
 	pluginConfigSpec = hclspec.NewObject(map[string]*hclspec.Spec{
 		"enabled": hclspec.NewAttr("enabled", "bool", false),
-		"ray_cluster_endpoint": hclspec.NewAttr("ray_cluster_endpoint", "string", false),
 	})
 
 	// taskConfigSpec represents an ECS task configuration object.
@@ -149,7 +148,6 @@ type Driver struct {
 // DriverConfig is the driver configuration set by the SetConfig RPC call
 type DriverConfig struct {
 	Enabled            bool   `codec:"enabled"`
-	RayClusterEndpoint string `codec:"ray_cluster_endpoint"`
 }
 
 // TaskConfig is the driver configuration of a task within a job
@@ -262,7 +260,7 @@ func (d *Driver) buildFingerprint(ctx context.Context) *drivers.Fingerprint {
 	attrs := map[string]*pstructs.Attribute{}
 
 	if d.config.Enabled {
-		if err := d.client.DescribeCluster(ctx, d.config.RayClusterEndpoint); err != nil {
+		if err := d.client.DescribeCluster(ctx); err != nil {
 			health = drivers.HealthStateUnhealthy
 			desc = err.Error()
 			attrs["driver.ecs"] = pstructs.NewBoolAttribute(false)
