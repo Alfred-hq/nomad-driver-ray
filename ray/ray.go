@@ -48,34 +48,35 @@ type rayRestClient struct {
 	rayClusterEndpoint string
 }
 
-func getTailscaleIP() (string, error) {
-	// Run the complete command with grep to get the IP directly
-	cmd := exec.Command("sh", "-c", "ip -4 addr show tailscale0 | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}'")
-	output, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to get tailscale IP: %v", err)
-	}
+// func getTailscaleIP() (string, error) {
+// 	// Run the complete command with grep to get the IP directly
+// 	cmd := exec.Command("sh", "-c", "ip -4 addr show tailscale0 | grep -oP '(?<=inet\\s)\\d+(\\.\\d+){3}'")
+// 	output, err := cmd.Output()
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to get tailscale IP: %v", err)
+// 	}
 
-	// Trim any whitespace or newlines from the output
-	ip := strings.TrimSpace(string(output))
-	if ip == "" {
-		return "", fmt.Errorf("no IP address found for tailscale0 interface")
-	}
+// 	// Trim any whitespace or newlines from the output
+// 	ip := strings.TrimSpace(string(output))
+// 	if ip == "" {
+// 		return "", fmt.Errorf("no IP address found for tailscale0 interface")
+// 	}
 
-	return ip, nil
-}
+// 	return ip, nil
+// }
 
 // DescribeCluster satisfies the DescribeCluster
 // interface function.
 func (c rayRestClient) DescribeCluster(ctx context.Context) error {
 	// Construct the full URL with the IP and port
-	ip, err := getTailscaleIP()
-	if err != nil {
-		return fmt.Errorf("failed to get tailscale IP: %v", err)
-	}
+	// ip, err := getTailscaleIP()
+	// if err != nil {
+	// 	return fmt.Errorf("failed to get tailscale IP: %v", err)
+	// }
 
 	// Construct the endpoint URL using the obtained IP
-	endpoint := fmt.Sprintf("http://%s:8265", ip)
+	// endpoint := fmt.Sprintf("http://%s:8265", ip)
+	endpoint := "http://localhost:8265"
 	url := fmt.Sprintf("%s/api/version", endpoint)
 
 	// Make a GET request to the REST API

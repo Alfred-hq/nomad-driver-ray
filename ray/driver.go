@@ -461,6 +461,8 @@ func (d *Driver) WaitTask(ctx context.Context, taskID string) (<-chan *drivers.E
 	if !ok {
 		return nil, drivers.ErrTaskNotFound
 	}
+	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
+	fmt.Fprintf(f, "inside wait task")
 
 	ch := make(chan *drivers.ExitResult)
 	go d.handleWait(ctx, handle, ch)
@@ -550,7 +552,11 @@ func (d *Driver) DestroyTask(taskID string, force bool) error {
 		return drivers.ErrTaskNotFound
 	}
 
+	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
+	fmt.Fprintf(f, "running destroy task")
+
 	if handle.IsRunning() && !force {
+		fmt.Fprintf(f, "cannot destroy running task")
 		return fmt.Errorf("cannot destroy running task")
 	}
 
@@ -558,6 +564,7 @@ func (d *Driver) DestroyTask(taskID string, force bool) error {
 	handle.stop(false)
 
 	d.tasks.Delete(taskID)
+	fmt.Fprintf(f, "destoryed task_id [%s] force [%s] \n", task_id, force)
 	d.logger.Info("ray task destroyed", "task_id", taskID, "force", force)
 	return nil
 }
