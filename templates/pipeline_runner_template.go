@@ -28,7 +28,7 @@ class {{.Actor}}:
 # Initialize connection to the Ray head node on the default port.
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
 
-pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_restart=-1, max_task_retries=-1, max_concurrency=100, num_cpus={{.NumCPUs}}).remote()
+pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_concurrency=100, num_cpus={{.NumCPUs}}).remote()
 `
 
 const RemoteRunnerTemplate = `
