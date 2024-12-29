@@ -9,11 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
 	// "os/exec"
 	// "strings"
 	"net/http"
 	"text/template"
-	"time"
+
 	"github.com/ryadavDeqode/nomad-driver-ray/templates"
 )
 
@@ -31,12 +32,11 @@ type rayRestInterface interface {
 	// returned to the caller.
 	RunTask(ctx context.Context, cfg TaskConfig) (string, error)
 
-	RunServeTask(ctx context.Context) (string, error)
+	// RunServeTask(ctx context.Context) (string, error)
 
-	GetRayServeHealth(ctx context.Context) (string, error)
+	// GetRayServeHealth(ctx context.Context) (string, error)
 
-	DeleteActor(ctx context.Context, actor_id string) (string, error)
-
+	// DeleteActor(ctx context.Context, actor_id string) (string, error)
 
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
@@ -159,129 +159,107 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 }
 
 // GetRayServeHealth sends a GET request to the specified URL
-func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/health"
+// func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
+// 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+// 	url := rayServeEndpoint + "/api/health"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to check ray serve health: %w %s", err, url)
-	}
-	defer resp.Body.Close()
+// 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to create request: %w", err)
+// 	}
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to check ray serve health: %w %s", err, url)
+// 	}
+// 	defer resp.Body.Close()
 
-	// Read the response body
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
+// 	// Read the response body
+// 	responseBody, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to read response body: %w", err)
+// 	}
 
-	var response ActorStatusResponse
-	err = json.Unmarshal(responseBody, &response)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
-	}
+// 	var response ActorStatusResponse
+// 	err = json.Unmarshal(responseBody, &response)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+// 	}
 
-	if response.Status != "ok" {
-		return "", fmt.Errorf("error from server: %s", response.Error)
-	}
+// 	if response.Status != "ok" {
+// 		return "", fmt.Errorf("error from server: %s", response.Error)
+// 	}
 
-	return response.Status, nil
-}
+// 	return response.Status, nil
+// }
 
-// DeleteActor sends a DELETE request to the specified URL
-func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
+// // DeleteActor sends a DELETE request to the specified URL
+// func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string, error) {
+// 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
+// 	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
 
-	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to create delete request: %w", err)
-	}
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to delete actor: %w %s", err, url)
-	}
-	defer resp.Body.Close()
+// 	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to create delete request: %w", err)
+// 	}
+// 	client := &http.Client{}
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to delete actor: %w %s", err, url)
+// 	}
+// 	defer resp.Body.Close()
 
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %w", err)
-	}
+// 	responseBody, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to read response body: %w", err)
+// 	}
 
-	var response ActorStatusResponse
-	err = json.Unmarshal(responseBody, &response)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
-	}
+// 	var response ActorStatusResponse
+// 	err = json.Unmarshal(responseBody, &response)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+// 	}
 
-	if response.Status != "success" {
-		return "", fmt.Errorf("error from server: %s", response.Error)
-	}
+// 	if response.Status != "success" {
+// 		return "", fmt.Errorf("error from server: %s", response.Error)
+// 	}
 
-	return response.Status, nil
-}
-
+// 	return response.Status, nil
+// }
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-	actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
 
-	if actorStatus != "ALIVE" || err != nil  {
-		scriptContent, err := generateScript(templates.RayActorTemplate, cfg.Task)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate script: %w", err)
-		}
-		
-		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
+	scriptContent, err := generateScript(templates.RemoteRunnerTemplate, cfg.Task)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate runner script: %w", err)
+	}
 
-		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
-		if err != nil {
-			return "", err
-		}
+	entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
+	_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129")
+	if err != nil {
+		return "", err
+	}
 
-		time.Sleep(20 * time.Second)
-
-		scriptContent, err = generateScript(templates.RemoteRunnerTemplate, cfg.Task)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate runner script: %w", err)
-		}
-		
-		entrypoint = fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
-		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129")
-		if err != nil {
-			return "", err
-		}
-
-		time.Sleep(10 * time.Second)
-	} 
-	
 	// Process the response if needed, assuming the actor's name is returned
 	return cfg.Task.Actor, nil
 }
 
+// func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
+// 	data := map[string]interface{}{
+// 		"ServerName": "AlfredRayServeAPI",
+// 		"Namespace": GlobalConfig.TaskConfig.Task.Namespace,
+// 	}
+// 	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to generate ray serve script: %w", err)
+// 	}
+// 	rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
+// 	_, err = submitJob(ctx, GlobalConfig.TaskConfig.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to submit ray serve job: %w", err)
+// 	}
 
-func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
-	data := map[string]interface{}{
-		"ServerName": "AlfredRayServeAPI",
-		"Namespace": GlobalConfig.TaskConfig.Task.Namespace,
-	}
-	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate ray serve script: %w", err)
-	}
-	rayServeEntrypoint := fmt.Sprintf(`python3 -c """%s"""`, rayServeScript)
-	_, err = submitJob(ctx, GlobalConfig.TaskConfig.Task.RayClusterEndpoint, rayServeEntrypoint, "128")
-	if err != nil {
-		return "", fmt.Errorf("failed to submit ray serve job: %w", err)
-	}
+// 	time.Sleep(10 * time.Second)
 
-	time.Sleep(10 * time.Second)
-
-	return "", nil
-}
-
+// 	return "", nil
+// }

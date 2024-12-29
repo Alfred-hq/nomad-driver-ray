@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
 	// "net/url"
 
 	// "strings"
 	"sync"
 	"time"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/stats"
@@ -105,7 +107,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to send POST request: %w", err)
 		}
@@ -116,7 +118,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
@@ -126,7 +128,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to unmarshal response: %w", err)
 		}
@@ -179,7 +181,6 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 	return response.ActorStatus, nil // Success, return actor status
 }
 
-
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
@@ -213,13 +214,12 @@ func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	return response.Status, nil
 }
 
-
 func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig, rayRestInterface rayRestInterface) *taskHandle {
 	ctx, cancel := context.WithCancel(context.Background())
-	logger = logger.Named("handle").With("actor", ts.Actor)
+	// logger = logger.Named("handle").With("actor", ts.Actor)
 
 	h := &taskHandle{
-		actor:            ts.Actor,
+		// actor:            ts.Actor,
 		rayRestInterface: rayRestInterface,
 		taskConfig:       taskConfig,
 		procState:        drivers.TaskStateRunning,
@@ -270,7 +270,6 @@ func (h *taskHandle) run() {
 	}
 	h.stateLock.Unlock()
 
-
 	if err != nil {
 		h.handleRunError(err, "failed to open task stdout path")
 		return
@@ -284,14 +283,14 @@ func (h *taskHandle) run() {
 	// Set the actor status and logs URLs
 	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
-	
+
 	// Block until stopped, doing nothing in the meantime.
 	for {
 		// Call the GetActorStatus function
 		actorStatus, err := GetActorStatus(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-			fmt.Fprintf(f, "Killing exisiting actor.",)
+			fmt.Fprintf(f, "Killing exisiting actor.")
 			_, err = DeleteActor(context.Background(), actorID)
 
 			if err != nil {
@@ -299,13 +298,13 @@ func (h *taskHandle) run() {
 			} else {
 				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
 			}
-		
+
 			return // TODO: add a retry here
 		}
 
 		fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
 		actorLogs, err := GetActorLogs(h.ctx, actorID)
-		
+
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
 		}
