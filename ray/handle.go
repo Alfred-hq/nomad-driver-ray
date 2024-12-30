@@ -299,7 +299,10 @@ func (h *taskHandle) run() {
 			} else {
 				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
 			}
-		
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
 			return // TODO: add a retry here
 		}
 
@@ -307,7 +310,12 @@ func (h *taskHandle) run() {
 		actorLogs, err := GetActorLogs(h.ctx, actorID)
 		
 		if err != nil {
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
 			fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
+			return
 		}
 		// Sleep for a specified interval before checking again
 		select {
