@@ -76,7 +76,7 @@ func (c rayRestClient) DescribeCluster(ctx context.Context) error {
 
 	// Construct the endpoint URL using the obtained IP
 	// endpoint := fmt.Sprintf("http://%s:8265", ip)
-	endpoint := "http://localhost:8265"
+	endpoint := "http://localhost:8260"
 	url := fmt.Sprintf("%s/api/version", endpoint)
 
 	// Make a GET request to the REST API
