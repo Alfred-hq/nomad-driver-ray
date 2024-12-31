@@ -118,7 +118,7 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 		"entrypoint":  entrypoint,
 		"runtime_env": map[string]interface{}{},
 		"job_id":      nil,
-		"submission_id": jobSubmissionID
+		"submission_id": jobSubmissionID,
 		// "metadata":    map[string]string{"job_submission_id": jobSubmissionID},
 	}
 

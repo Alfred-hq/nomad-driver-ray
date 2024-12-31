@@ -272,33 +272,13 @@ func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error
     return logs, errs
 }
 
-// GetJobDetails sends a POST request to the specified URL with the given actor_id
-func GetTaskLogs(ctx context.Context, submissionId string) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
-	url := rayServeEndpoint + "/api/jobs/" + submissionId + 
-
-	var response JobDetailsResponse
-
-	err := sendRequest(ctx, url, nil, &response, "GET")
-	if err != nil {
-		return "", err
-	}
-
-	// Check if the response contains an error
-	if response.Status != "SUCCEEDED" {
-		return "", fmt.Errorf("error from server: %s", response.Error)
-	}
-
-	return response.ActorStatus, nil // Success, return actor status
-}
-
 
 // GetJobStatus sends a POST request to the specified URL with the given actor_id
 func DeleteJob(ctx context.Context, submissionId string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 	url := rayServeEndpoint + "/api/jobs/" + submissionId
 
-	var response
+	var response interface{}
 
 	err := sendRequest(ctx, url, nil, &response, "DELETE")
 	if err != nil {
