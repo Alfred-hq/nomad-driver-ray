@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"log"
-	// "strings"
+	"strings"
 	"sync"
 	"time"
 	"github.com/hashicorp/go-hclog"
@@ -207,7 +207,7 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 }
 
 // GetJobDetails sends a POST request to the specified URL with the given actor_id
-func GetJobDetails(ctx context.Context, submissionId string) (string, error) {
+func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 	url := rayServeEndpoint + "/api/jobs/" + submissionId
 
@@ -215,15 +215,10 @@ func GetJobDetails(ctx context.Context, submissionId string) (string, error) {
 
 	err := sendRequest(ctx, url, nil, &response, "GET")
 	if err != nil {
-		return "", err
+		return JobDetailsResponse{}, err
 	}
 
-	// Check if the response contains an error
-	if response.Status != "SUCCEEDED" {
-		return "", fmt.Errorf("error from server: %s", response.Error)
-	}
-
-	return response.ActorStatus, nil // Success, return actor status
+	return response, nil // Success, return actor status
 }
 
 func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error) {
@@ -274,7 +269,7 @@ func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error
 
 
 // GetJobStatus sends a POST request to the specified URL with the given actor_id
-func DeleteJob(ctx context.Context, submissionId string) (string, error) {
+func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 	url := rayServeEndpoint + "/api/jobs/" + submissionId
 
@@ -282,10 +277,10 @@ func DeleteJob(ctx context.Context, submissionId string) (string, error) {
 
 	err := sendRequest(ctx, url, nil, &response, "DELETE")
 	if err != nil {
-		return "", err
+		return false, err
 	}
 
-	return response // Success, return actor status
+	return true, nil // Success, return actor status
 }
 
 
@@ -395,8 +390,10 @@ func (h *taskHandle) run() {
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
 	
 	// Block until stopped, doing nothing in the meantime.
-	actorStatus, err := GetJobDetails(h.ctx, actorID)
-	if err != nil {
+	jobDetails, err := GetJobDetails(h.ctx, actorID)
+	fmt.Fprintf(f, "Actor Status %s \n", jobDetails.Status)
+
+	if err != nil || jobDetails.Status != "RUNNING" {
 		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
 		fmt.Fprintf(f, "Killing exisiting actor.",)
 		_, err = DeleteJob(context.Background(), actorID)

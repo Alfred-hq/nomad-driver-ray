@@ -37,6 +37,8 @@ type rayRestInterface interface {
 
 	DeleteActor(ctx context.Context, actor_id string) (string, error)
 
+	DeleteJob(ctx context.Context, submissionId string) (bool, error)
+
 
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
@@ -228,13 +230,27 @@ func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string
 	return response.Status, nil
 }
 
+func (c rayRestClient) DeleteJob(ctx context.Context, submissionId string) (bool, error) {
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := rayServeEndpoint + "/api/jobs/" + submissionId
+
+	var response interface{}
+
+	err := sendRequest(ctx, url, nil, &response, "DELETE")
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil // Success, return actor status
+}
+
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
 	// actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
-	actorStatus, err := GetJobDetails(context.Background(), cfg.Task.Actor)
+	jobDetails, err := GetJobDetails(context.Background(), cfg.Task.Actor)
 	
 
-	if actorStatus != "RUNNING" || err != nil  {
+	if jobDetails.Status != "RUNNING" || err != nil  {
 		_, err := DeleteJob(context.Background(), cfg.Task.Actor)
 		if err != nil {
 			return "", err
