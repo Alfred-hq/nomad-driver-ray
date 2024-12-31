@@ -10,8 +10,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	// "net/url"
-
+	"net/url"
+	"log"
 	// "strings"
 	"sync"
 	"time"
@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/stats"
 	"github.com/hashicorp/nomad/plugins/drivers"
+	"github.com/gorilla/websocket"
 )
 
 // // These represent the ECS task terminal lifecycle statuses.
@@ -79,63 +80,89 @@ type ActorStatusResponse struct {
 	Error       string `json:"error,omitempty"`
 }
 
-// sendRequest sends a POST request with retry logic
-func sendRequest(ctx context.Context, url string, payload interface{}, response interface{}) error {
-	const retryDelay = 3 * time.Second // Delay between retries
+type JobDetailsResponse struct {
+	Status      string `json:"status"`
+	SubmissionId string `json:"submissionId"`
+}
 
-	jsonData, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("failed to marshal JSON: %w", err)
+// sendRequest sends a POST request with retry logic
+func sendRequest(ctx context.Context, url string, payload interface{}, response interface{}, method ...string) error {
+	const retryDelay = 3 * time.Second // Delay between retries
+	const defaultRetries = 3           // Default retry count
+
+	reqMethod := "POST"
+	if len(method) > 0 {
+		reqMethod = method[0]
+	}
+
+	var jsonData []byte
+	var err error
+	if payload != nil {
+		jsonData, err = json.Marshal(payload)
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON: %w", err)
+		}
 	}
 
 	client := &http.Client{}
 
-	for attempts := 0; attempts < 3; attempts++ {
-		// Create a new POST request
-		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+	for attempts := 0; attempts < defaultRetries; attempts++ {
+		// Create a new HTTP request
+		var body *bytes.Buffer
+		if payload != nil {
+			body = bytes.NewBuffer(jsonData)
+		} else {
+			body = &bytes.Buffer{}
+		}
+		req, err := http.NewRequestWithContext(ctx, reqMethod, url, body)
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
 
-		// Set the content type to application/json
-		req.Header.Set("Content-Type", "application/json")
+		// Set the content type if payload exists
+		if payload != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 
 		// Perform the HTTP request
 		resp, err := client.Do(req)
 		if err != nil {
-			if attempts < 2 {
+			if attempts < defaultRetries-1 {
 				time.Sleep(retryDelay) // Wait before retrying
 				continue // Retry
 			}
-			return fmt.Errorf("failed to send POST request: %w", err)
+			return fmt.Errorf("failed to send %s request: %w", reqMethod, err)
 		}
 		defer resp.Body.Close()
 
 		// Read the response body
 		responseBody, err := io.ReadAll(resp.Body)
 		if err != nil {
-			if attempts < 2 {
+			if attempts < defaultRetries-1 {
 				time.Sleep(retryDelay) // Wait before retrying
 				continue // Retry
 			}
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
 
-		// Unmarshal the response
-		err = json.Unmarshal(responseBody, response)
-		if err != nil {
-			if attempts < 2 {
-				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+		// Unmarshal the response if a response object is provided
+		if response != nil {
+			err = json.Unmarshal(responseBody, response)
+			if err != nil {
+				if attempts < defaultRetries-1 {
+					time.Sleep(retryDelay) // Wait before retrying
+					continue // Retry
+				}
+				return fmt.Errorf("failed to unmarshal response: %w", err)
 			}
-			return fmt.Errorf("failed to unmarshal response: %w", err)
 		}
 
 		return nil // Success
 	}
 
-	return fmt.Errorf("failed after 3 attempts")
+	return fmt.Errorf("failed after %d attempts", defaultRetries)
 }
+
 
 // GetActorLogs sends a POST request to retrieve logs of a specific actor
 func GetActorLogs(ctx context.Context, actorID string) (string, error) {
@@ -177,6 +204,108 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 	}
 
 	return response.ActorStatus, nil // Success, return actor status
+}
+
+// GetJobDetails sends a POST request to the specified URL with the given actor_id
+func GetJobDetails(ctx context.Context, submissionId string) (string, error) {
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := rayServeEndpoint + "/api/jobs/" + submissionId
+
+	var response JobDetailsResponse
+
+	err := sendRequest(ctx, url, nil, &response, "GET")
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the response contains an error
+	if response.Status != "SUCCEEDED" {
+		return "", fmt.Errorf("error from server: %s", response.Error)
+	}
+
+	return response.ActorStatus, nil // Success, return actor status
+}
+
+func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error) {
+    logs := make(chan string)
+    errs := make(chan error)
+
+    go func() {
+        defer close(logs)
+        defer close(errs)
+
+		serverURL := fmt.Sprintf(
+			"%s/api/jobs/%s/logs/tail",
+			GlobalConfig.TaskConfig.Task.RayClusterEndpoint,
+			jobID,
+		)
+		serverURL = strings.Replace(serverURL, "http", "ws", 1) // Replace "http" with "ws"
+
+        u, err := url.Parse(serverURL)
+        if err != nil {
+            errs <- fmt.Errorf("invalid URL: %w", err)
+            return
+        }
+
+        conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+        if err != nil {
+            errs <- fmt.Errorf("failed to connect to WebSocket: %w", err)
+            return
+        }
+        defer conn.Close()
+
+        for {
+            select {
+            case <-ctx.Done():
+                return
+            default:
+                _, message, err := conn.ReadMessage()
+                if err != nil {
+                    errs <- fmt.Errorf("failed to read message: %w", err)
+                    return
+                }
+                logs <- string(message)
+            }
+        }
+    }()
+
+    return logs, errs
+}
+
+// GetJobDetails sends a POST request to the specified URL with the given actor_id
+func GetTaskLogs(ctx context.Context, submissionId string) (string, error) {
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := rayServeEndpoint + "/api/jobs/" + submissionId + 
+
+	var response JobDetailsResponse
+
+	err := sendRequest(ctx, url, nil, &response, "GET")
+	if err != nil {
+		return "", err
+	}
+
+	// Check if the response contains an error
+	if response.Status != "SUCCEEDED" {
+		return "", fmt.Errorf("error from server: %s", response.Error)
+	}
+
+	return response.ActorStatus, nil // Success, return actor status
+}
+
+
+// GetJobStatus sends a POST request to the specified URL with the given actor_id
+func DeleteJob(ctx context.Context, submissionId string) (string, error) {
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := rayServeEndpoint + "/api/jobs/" + submissionId
+
+	var response
+
+	err := sendRequest(ctx, url, nil, &response, "DELETE")
+	if err != nil {
+		return "", err
+	}
+
+	return response // Success, return actor status
 }
 
 
@@ -286,57 +415,60 @@ func (h *taskHandle) run() {
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
 	
 	// Block until stopped, doing nothing in the meantime.
-	for {
-		// Call the GetActorStatus function
-		actorStatus, err := GetActorStatus(h.ctx, actorID)
-		if err != nil {
-			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-			fmt.Fprintf(f, "Killing exisiting actor.",)
-			_, err = DeleteActor(context.Background(), actorID)
+	actorStatus, err := GetJobDetails(h.ctx, actorID)
+	if err != nil {
+		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
+		fmt.Fprintf(f, "Killing exisiting actor.",)
+		_, err = DeleteJob(context.Background(), actorID)
 
-			if err != nil {
-				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
-			} else {
-				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
-			}
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			return // TODO: add a retry here
-		}
-
-		fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
-		actorLogs, err := GetActorLogs(h.ctx, actorID)
-		
 		if err != nil {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
-			return
+			fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
+		} else {
+			fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
 		}
-		// Sleep for a specified interval before checking again
-		select {
-		case <-time.After(5 * time.Second):
-			// Continue checking after 2 seconds
+		h.procState = drivers.TaskStateExited
+		h.exitResult.ExitCode = 143
+		h.exitResult.Signal = 15
+		h.completedAt = time.Now()
+		return // TODO: add a retry here
+	}
+
+	fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
+
+    ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	logs, errs := tailJobLogs(ctx, actorID)
+
+    for {
+        select {
+        case log, ok := <-logs:
+            if !ok {
+				h.procState = drivers.TaskStateExited
+				h.exitResult.ExitCode = 143
+				h.exitResult.Signal = 15
+				h.completedAt = time.Now()
+                return // Logs channel closed
+            }			
 			now := time.Now().Format(time.RFC3339)
 			if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
 			}
-			if _, err := fmt.Fprintf(f, "[%s] - actorStatus\n", actorStatus); err != nil {
+			if _, err := fmt.Fprintf(f, "%s\n", log); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
 			}
-			if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err != nil {
-				h.handleRunError(err, "failed to write to stdout")
-			}
-		case <-h.ctx.Done():
-			// Handle context cancellation
-			fmt.Println("Context cancelled. Exiting...")
-			return
-		}
-	}
+        case err, ok := <-errs:
+            if ok {
+				fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
+                log.Fatalf("Error: %v\n", err)
+            }
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
+            return // Errors channel closed
+        }
+    }
+
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()
 

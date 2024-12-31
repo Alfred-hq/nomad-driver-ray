@@ -118,7 +118,8 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 		"entrypoint":  entrypoint,
 		"runtime_env": map[string]interface{}{},
 		"job_id":      nil,
-		"metadata":    map[string]string{"job_submission_id": jobSubmissionID},
+		"submission_id": jobSubmissionID
+		// "metadata":    map[string]string{"job_submission_id": jobSubmissionID},
 	}
 
 	// Convert payload to JSON
@@ -229,35 +230,25 @@ func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string
 
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
-	actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
+	// actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
+	actorStatus, err := GetJobDetails(context.Background(), cfg.Task.Actor)
+	
 
-	if actorStatus != "ALIVE" || err != nil  {
-		scriptContent, err := generateScript(templates.RayActorTemplate, cfg.Task)
-		if err != nil {
-			return "", fmt.Errorf("failed to generate script: %w", err)
-		}
-		
-		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
-
-		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
+	if actorStatus != "RUNNING" || err != nil  {
+		_, err := DeleteJob(context.Background(), cfg.Task.Actor)
 		if err != nil {
 			return "", err
 		}
-
-		time.Sleep(20 * time.Second)
-
-		scriptContent, err = generateScript(templates.RemoteRunnerTemplate, cfg.Task)
+		scriptContent, err := generateScript(templates.RemoteRunnerTemplate, cfg.Task)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate runner script: %w", err)
 		}
-		
-		entrypoint = fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
-		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129")
+	
+		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
+		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, cfg.Task.Actor)
 		if err != nil {
 			return "", err
 		}
-
-		time.Sleep(10 * time.Second)
 	} 
 	
 	// Process the response if needed, assuming the actor's name is returned

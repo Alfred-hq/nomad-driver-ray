@@ -310,10 +310,10 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	fmt.Fprintf(f, "Ray task recovered \n", err)
 
-	if err := d.StartRayServeApi(f); err != nil {
-		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
-		return fmt.Errorf("failed to start Ray Serve API: %v", err)
-	}
+	// if err := d.StartRayServeApi(f); err != nil {
+	// 	fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
+	// 	return fmt.Errorf("failed to start Ray Serve API: %v", err)
+	// }
 
 	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
@@ -428,10 +428,10 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
-	if err := d.StartRayServeApi(f); err != nil {
-		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
-		return nil, nil, fmt.Errorf("failed to start Ray Serve API: %v", err)
-	}
+	// if err := d.StartRayServeApi(f); err != nil {
+	// 	fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
+	// 	return nil, nil, fmt.Errorf("failed to start Ray Serve API: %v", err)
+	// }
 
 	// Start the task
 	_, err = d.client.RunTask(context.Background(), driverConfig)
@@ -522,7 +522,7 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 		fmt.Fprintf(f, "Failed to open writer while stopping \n")
 	}
 	actorId := getActorId(taskID)
-	_, err = d.client.DeleteActor(context.Background(), actorId)
+	_, err = d.client.DeleteJob(context.Background(), actorId)
 
 
 	if err != nil {
