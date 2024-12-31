@@ -341,7 +341,7 @@ func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	var response ActorStatusResponse
 	err = json.Unmarshal(responseBody, &response)
 	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+		return "", fmt.Errorf("failed to unmarshal response for delete actor: %w", err)
 	}
 
 	if response.Status != "success" {

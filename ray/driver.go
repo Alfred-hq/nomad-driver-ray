@@ -326,8 +326,8 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	_, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
-		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
-		return fmt.Errorf("failed to start ray task: %v", err)
+		fmt.Fprintf(f, "failed to recover ray task: %v\n", err)
+		return fmt.Errorf("failed to recover ray task: %v", err)
 	}
 
 	d.tasks.Set(handle.Config.ID, h)
