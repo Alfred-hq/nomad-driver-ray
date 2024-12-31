@@ -208,17 +208,44 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 
 // GetJobDetails sends a POST request to the specified URL with the given actor_id
 func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	// rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	// url := rayServeEndpoint + "/api/jobs/" + submissionId
+
+	// var response JobDetailsResponse
+
+	// err := sendRequest(ctx, url, nil, &response, "GET")
+	// if err != nil {
+	// 	return JobDetailsResponse{}, err
+	// }
+
+	// return response, nil // Success, return actor status
+
+	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/jobs/" + submissionId
 
-	var response JobDetailsResponse
-
-	err := sendRequest(ctx, url, nil, &response, "GET")
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
-		return JobDetailsResponse{}, err
+		return JobDetailsResponse{}, fmt.Errorf("failed to create request for job details: %w", err)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return JobDetailsResponse{}, fmt.Errorf("failed to check job details: %w %s", err, url)
+	}
+	defer resp.Body.Close()
+
+	// Read the response body
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return JobDetailsResponse{}, fmt.Errorf("failed to read response body for job details: %w", err)
 	}
 
-	return response, nil // Success, return actor status
+	var response JobDetailsResponse
+	err = json.Unmarshal(responseBody, &response)
+	if err != nil {
+		return JobDetailsResponse{}, fmt.Errorf("failed to unmarshal response for job details: %w", err)
+	}
+	return response, nil
 }
 
 func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error) {
