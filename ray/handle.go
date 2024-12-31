@@ -81,8 +81,15 @@ type ActorStatusResponse struct {
 }
 
 type JobDetailsResponse struct {
-	Status      string `json:"status"`
-	SubmissionId string `json:"submissionId"`
+	Type                    string     `json:"type"`
+	Entrypoint              string     `json:"entrypoint"`
+	JobID                   string     `json:"job_id"`
+	SubmissionID            string     `json:"submission_id"`
+	Status                  string     `json:"status"`
+	Message                 string     `json:"message"`
+	ErrorType               string     `json:"error_type"`
+	StartTime               int64      `json:"start_time"`
+	EndTime                 int64      `json:"end_time"`
 }
 
 // sendRequest sends a POST request with retry logic
