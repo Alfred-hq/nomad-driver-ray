@@ -571,7 +571,7 @@ func (d *Driver) DestroyTask(taskID string, force bool) error {
 	handle.stop(false)
 
 	d.tasks.Delete(taskID)
-	fmt.Fprintf(f, "destoryed task_id [%s] force [%s] \n", taskID, force)
+	fmt.Fprintf(f, "destroyed task_id [%s] force [%s] \n", taskID, force)
 	d.logger.Info("ray task destroyed", "task_id", taskID, "force", force)
 	return nil
 }

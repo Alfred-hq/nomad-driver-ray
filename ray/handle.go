@@ -419,6 +419,7 @@ func (h *taskHandle) run() {
 	// Set the actor status and logs URLs
 	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
+	time.Sleep(10 * time.Second)
 
 	// Block until stopped, doing nothing in the meantime.
 	jobDetails, err := GetJobDetails(h.ctx, actorID)
@@ -441,7 +442,6 @@ func (h *taskHandle) run() {
 		return // TODO: add a retry here
 	}
 
-	fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
