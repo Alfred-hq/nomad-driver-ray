@@ -435,10 +435,11 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	// Start the task
 	var job_details string
-	_, job_details, err = d.client.RunTask(context.Background(), driverConfig)
+	var task_actor string
+	task_actor, job_details, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
-		fmt.Fprintf(f, "failed to start ray task: %v\n , details %v ", err, job_details)
-		return nil, nil, fmt.Errorf("failed to start ray task return: %v , details: %v", err, job_details)
+		fmt.Fprintf(f, "failed to start ray task: %v\n , detailss %v task_actor %v", err, job_details, task_actor)
+		return nil, nil, fmt.Errorf("failed to start ray task return: %v , details: %v , task_actor: %v ", err, job_details, task_actor)
 	}
 
 	// driverState.Actor = actor
