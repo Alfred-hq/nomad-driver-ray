@@ -59,6 +59,7 @@ def main():
     except Exception as e:
         print(f\"Error running workflow: {e}\")
 
-main()
+ray.get(main.remote())
+
 
 `
