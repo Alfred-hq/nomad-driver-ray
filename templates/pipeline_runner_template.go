@@ -41,8 +41,8 @@ import os
 import sys
 import importlib
 
-ray.init(address="auto", namespace=\"{{.Namespace}}\")
-
+ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
+@ray.remote
 def main():
     try:
         # Add the pipeline file directory to the Python path
@@ -57,8 +57,8 @@ def main():
         # Execute the pipeline function directly
         getattr(pipeline_module, \"{{.PipelineRunner}}\")()
     except Exception as e:
-        print(f"Error running workflow: {e}")
+        print(f/"Error running workflow: {e}/")
 
-if __name__ == "__main__":
-    main()
+main()
+
 `
