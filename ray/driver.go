@@ -324,7 +324,7 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	}
 	driverConfig.Task.Actor = driverConfig.Task.Actor + "_" + strings.ReplaceAll(handle.Config.AllocID, "-", "")
 
-	_, err = d.client.RunTask(context.Background(), driverConfig)
+	_, _, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
 		fmt.Fprintf(f, "failed to recover ray task: %v\n", err)
 		return fmt.Errorf("failed to recover ray task: %v", err)
@@ -434,10 +434,11 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	// }
 
 	// Start the task
-	_, err = d.client.RunTask(context.Background(), driverConfig)
+	var job_details string
+	_, job_details, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
 		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
-		return nil, nil, fmt.Errorf("failed to start ray task: %v", err)
+		return nil, nil, fmt.Errorf("failed to start ray task: %v , details: %v", err, job_details)
 	}
 
 	// driverState.Actor = actor

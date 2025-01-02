@@ -251,7 +251,7 @@ func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse
 	var response JobDetailsResponse
 	err = json.Unmarshal(responseBody, &response)
 	if err != nil {
-		return JobDetailsResponse{}, fmt.Errorf("failed to unmarshal response for job details: %w", err)
+		return JobDetailsResponse{}, fmt.Errorf("failed to unmarshal response for job details: %w, raw response: %s", err, string(responseBody))
 	}
 	return response, nil
 }

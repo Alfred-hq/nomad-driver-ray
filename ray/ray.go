@@ -31,7 +31,7 @@ type rayRestInterface interface {
 	// RunTask is used to trigger the running of a new RAY REST task based on the
 	// provided configuration. Any errors are
 	// returned to the caller.
-	RunTask(ctx context.Context, cfg TaskConfig) (string, error)
+	RunTask(ctx context.Context, cfg TaskConfig) (string, string, error)
 
 	RunServeTask(ctx context.Context) (string, error)
 
@@ -245,7 +245,7 @@ func (c rayRestClient) DeleteJob(ctx context.Context, submissionId string) (bool
 	return true, nil // Success, return actor status
 }
 
-func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
+func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, string, error) {
 	// actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
 	jobDetails, err := GetJobDetails(context.Background(), cfg.Task.Actor)
 	if err != nil {
@@ -257,22 +257,23 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 	if jobDetails.Status != "RUNNING" || err != nil {
 		_, err := DeleteJob(context.Background(), cfg.Task.Actor)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 		scriptContent, err := generateScript(templates.RemoteRunnerTemplate, cfg.Task)
 		if err != nil {
-			return "", fmt.Errorf("failed to generate runner script: %w", err)
+			return "", "", fmt.Errorf("failed to generate runner script: %w", err)
 		}
 
 		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, cfg.Task.Actor)
 		if err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
+	jobDetailsStr := fmt.Sprintf("%+v", jobDetails)
 
 	// Process the response if needed, assuming the actor's name is returned
-	return cfg.Task.Actor, nil
+	return cfg.Task.Actor, jobDetailsStr, err
 }
 
 func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
