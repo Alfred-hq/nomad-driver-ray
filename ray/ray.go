@@ -247,21 +247,29 @@ func (c rayRestClient) DeleteJob(ctx context.Context, submissionId string) (bool
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, string, error) {
 	// actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
+
+	submission_id := cfg.Task.Actor
+	jobDetailsStr := "No job details fetched"
 	jobDetails, err := GetJobDetails(context.Background(), cfg.Task.Actor)
+
 	if err != nil {
 		fmt.Printf("Error fetching job details: %v\n", err)
 	} else {
 		fmt.Printf("Job details: %+v\n", jobDetails)
+		jobDetailsStr = fmt.Sprintf("%+v", jobDetails) // Only update if successful
 	}
-
+	//  here if job details is not running
 	if jobDetails.Status != "RUNNING" || err != nil {
+		//  delete only when the job is found but not running
+
 		_, err := DeleteJob(context.Background(), cfg.Task.Actor)
 		if err != nil {
-			return "", "", err
+			fmt.Printf("Unable to delete the job '%s': %v. Proceeding to start a new job.\n", submission_id, jobDetailsStr)
+
 		}
 		scriptContent, err := generateScript(templates.RemoteRunnerTemplate, cfg.Task)
 		if err != nil {
-			return "", "", fmt.Errorf("failed to generate runner script: %w", err)
+			return submission_id, jobDetailsStr, fmt.Errorf("failed to generate runner script: %w", err)
 		}
 
 		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
@@ -270,10 +278,9 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, str
 			return "", "", err
 		}
 	}
-	jobDetailsStr := fmt.Sprintf("%+v", jobDetails)
 
 	// Process the response if needed, assuming the actor's name is returned
-	return cfg.Task.Actor, jobDetailsStr, err
+	return submission_id, jobDetailsStr, err
 }
 
 func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
