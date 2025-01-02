@@ -164,8 +164,8 @@ func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmi
 
 // GetRayServeHealth sends a GET request to the specified URL
 func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/health"
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/health"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -199,8 +199,8 @@ func (c rayRestClient) GetRayServeHealth(ctx context.Context) (string, error) {
 
 // DeleteActor sends a DELETE request to the specified URL
 func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/kill-actor?actor_id=" + actor_id
 
 	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
@@ -232,8 +232,8 @@ func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string
 }
 
 func (c rayRestClient) DeleteJob(ctx context.Context, submissionId string) (bool, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
-	url := rayServeEndpoint + "/api/jobs/" + submissionId
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/jobs/" + submissionId
 
 	var response interface{}
 

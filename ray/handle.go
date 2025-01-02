@@ -173,8 +173,8 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 
 // GetActorLogs sends a POST request to retrieve logs of a specific actor
 func GetActorLogs(ctx context.Context, actorID string) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/actor-logs"
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/actor-logs"
 
 	payload := ActorLogsRequest{ActorID: actorID}
 	var response ActorLogsResponse
@@ -194,8 +194,8 @@ func GetActorLogs(ctx context.Context, actorID string) (string, error) {
 
 // GetActorStatus sends a POST request to the specified URL with the given actor_id
 func GetActorStatus(ctx context.Context, actorID string) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/actor-status"
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/actor-status"
 
 	payload := ActorStatusRequest{ActorID: actorID}
 	var response ActorStatusResponse
@@ -215,8 +215,8 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 
 // GetJobDetails sends a POST request to the specified URL with the given actor_id
 func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse, error) {
-	// rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
-	// url := rayServeEndpoint + "/api/jobs/" + submissionId
+	// RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	// url := RayClusterEndpoint + "/api/jobs/" + submissionId
 
 	// var response JobDetailsResponse
 
@@ -227,8 +227,8 @@ func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse
 
 	// return response, nil // Success, return actor status
 
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/jobs/" + submissionId
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/jobs/" + submissionId
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
@@ -304,8 +304,8 @@ func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error
 
 // GetJobStatus sends a POST request to the specified URL with the given actor_id
 func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
-	url := rayServeEndpoint + "/api/jobs/" + submissionId
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/jobs/" + submissionId
 
 	var response interface{}
 
@@ -318,8 +318,8 @@ func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 }
 
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
-	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
-	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/kill-actor?actor_id=" + actor_id
 
 	req, err := http.NewRequestWithContext(ctx, "DELETE", url, nil)
 	if err != nil {
@@ -419,8 +419,6 @@ func (h *taskHandle) run() {
 	// Set the actor status and logs URLs
 	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
-	time.Sleep(10 * time.Second)
-
 	// Block until stopped, doing nothing in the meantime.
 	jobDetails, err := GetJobDetails(h.ctx, actorID)
 	fmt.Fprintf(f, "Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
