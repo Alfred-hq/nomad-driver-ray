@@ -41,13 +41,13 @@ import os
 import sys
 import importlib
 
-ray.init(address="auto", namespace="{{.Namespace}}")
+ray.init(address="auto", namespace=\"{{.Namespace}}\")
 
 def main():
     try:
         # Add the pipeline file directory to the Python path
-        directory_path = os.path.dirname("{{.PipelineFilePath}}")
-        file_name = os.path.splitext(os.path.basename("{{.PipelineFilePath}}"))[0]
+        directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
+        file_name = os.path.splitext(os.path.basename(\"{{.PipelineFilePath}}\"))[0]
 
         sys.path.append(directory_path)
 
@@ -55,7 +55,7 @@ def main():
         pipeline_module = importlib.import_module(file_name)
 
         # Execute the pipeline function directly
-        getattr(pipeline_module, "{{.PipelineRunner}}")()
+        getattr(pipeline_module, \"{{.PipelineRunner}}\")()
     except Exception as e:
         print(f"Error running workflow: {e}")
 
