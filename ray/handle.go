@@ -423,6 +423,7 @@ func (h *taskHandle) run() {
 
 	// Block until stopped, doing nothing in the meantime.
 	jobDetails, err := GetJobDetails(h.ctx, actorID)
+	fmt.Fprintf(f, "Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
 	fmt.Fprintf(f, "Actor Status %s \n", jobDetails.Status)
 
 	if err != nil || jobDetails.Status != "RUNNING" {
@@ -441,7 +442,6 @@ func (h *taskHandle) run() {
 		h.completedAt = time.Now()
 		return // TODO: add a retry here
 	}
-
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
