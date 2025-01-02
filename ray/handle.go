@@ -9,17 +9,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
-	"log"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/stats"
 	"github.com/hashicorp/nomad/plugins/drivers"
-	"github.com/gorilla/websocket"
 )
 
 // // These represent the ECS task terminal lifecycle statuses.
@@ -81,15 +82,15 @@ type ActorStatusResponse struct {
 }
 
 type JobDetailsResponse struct {
-	Type                    string     `json:"type"`
-	Entrypoint              string     `json:"entrypoint"`
-	JobID                   string     `json:"job_id"`
-	SubmissionID            string     `json:"submission_id"`
-	Status                  string     `json:"status"`
-	Message                 string     `json:"message"`
-	ErrorType               string     `json:"error_type"`
-	StartTime               int64      `json:"start_time"`
-	EndTime                 int64      `json:"end_time"`
+	Type         string `json:"type"`
+	Entrypoint   string `json:"entrypoint"`
+	JobID        string `json:"job_id"`
+	SubmissionID string `json:"submission_id"`
+	Status       string `json:"status"`
+	Message      string `json:"message"`
+	ErrorType    string `json:"error_type"`
+	StartTime    int64  `json:"start_time"`
+	EndTime      int64  `json:"end_time"`
 }
 
 // sendRequest sends a POST request with retry logic
@@ -136,7 +137,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < defaultRetries-1 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to send %s request: %w", reqMethod, err)
 		}
@@ -147,7 +148,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < defaultRetries-1 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
@@ -158,7 +159,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 			if err != nil {
 				if attempts < defaultRetries-1 {
 					time.Sleep(retryDelay) // Wait before retrying
-					continue // Retry
+					continue               // Retry
 				}
 				return fmt.Errorf("failed to unmarshal response: %w", err)
 			}
@@ -169,7 +170,6 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 
 	return fmt.Errorf("failed after %d attempts", defaultRetries)
 }
-
 
 // GetActorLogs sends a POST request to retrieve logs of a specific actor
 func GetActorLogs(ctx context.Context, actorID string) (string, error) {
@@ -246,6 +246,7 @@ func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse
 	if err != nil {
 		return JobDetailsResponse{}, fmt.Errorf("failed to read response body for job details: %w", err)
 	}
+	fmt.Printf("Raw response body from GetJobDetails: %s\n", string(responseBody))
 
 	var response JobDetailsResponse
 	err = json.Unmarshal(responseBody, &response)
@@ -256,12 +257,12 @@ func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse
 }
 
 func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error) {
-    logs := make(chan string)
-    errs := make(chan error)
+	logs := make(chan string)
+	errs := make(chan error)
 
-    go func() {
-        defer close(logs)
-        defer close(errs)
+	go func() {
+		defer close(logs)
+		defer close(errs)
 
 		serverURL := fmt.Sprintf(
 			"%s/api/jobs/%s/logs/tail",
@@ -270,37 +271,36 @@ func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error
 		)
 		serverURL = strings.Replace(serverURL, "http", "ws", 1) // Replace "http" with "ws"
 
-        u, err := url.Parse(serverURL)
-        if err != nil {
-            errs <- fmt.Errorf("invalid URL: %w", err)
-            return
-        }
+		u, err := url.Parse(serverURL)
+		if err != nil {
+			errs <- fmt.Errorf("invalid URL: %w", err)
+			return
+		}
 
-        conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-        if err != nil {
-            errs <- fmt.Errorf("failed to connect to WebSocket: %w", err)
-            return
-        }
-        defer conn.Close()
+		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
+		if err != nil {
+			errs <- fmt.Errorf("failed to connect to WebSocket: %w", err)
+			return
+		}
+		defer conn.Close()
 
-        for {
-            select {
-            case <-ctx.Done():
-                return
-            default:
-                _, message, err := conn.ReadMessage()
-                if err != nil {
-                    errs <- fmt.Errorf("failed to read message: %w", err)
-                    return
-                }
-                logs <- string(message)
-            }
-        }
-    }()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				_, message, err := conn.ReadMessage()
+				if err != nil {
+					errs <- fmt.Errorf("failed to read message: %w", err)
+					return
+				}
+				logs <- string(message)
+			}
+		}
+	}()
 
-    return logs, errs
+	return logs, errs
 }
-
 
 // GetJobStatus sends a POST request to the specified URL with the given actor_id
 func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
@@ -316,7 +316,6 @@ func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 
 	return true, nil // Success, return actor status
 }
-
 
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
@@ -350,7 +349,6 @@ func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 
 	return response.Status, nil
 }
-
 
 func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig, rayRestInterface rayRestInterface) *taskHandle {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -408,7 +406,6 @@ func (h *taskHandle) run() {
 	}
 	h.stateLock.Unlock()
 
-
 	if err != nil {
 		h.handleRunError(err, "failed to open task stdout path")
 		return
@@ -422,14 +419,14 @@ func (h *taskHandle) run() {
 	// Set the actor status and logs URLs
 	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
-	
+
 	// Block until stopped, doing nothing in the meantime.
 	jobDetails, err := GetJobDetails(h.ctx, actorID)
 	fmt.Fprintf(f, "Actor Status %s \n", jobDetails.Status)
 
 	if err != nil || jobDetails.Status != "RUNNING" {
 		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-		fmt.Fprintf(f, "Killing exisiting actor.",)
+		fmt.Fprintf(f, "Killing exisiting actor.")
 		_, err = DeleteJob(context.Background(), actorID)
 
 		if err != nil {
@@ -446,20 +443,20 @@ func (h *taskHandle) run() {
 
 	fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
 
-    ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	logs, errs := tailJobLogs(ctx, actorID)
 
-    for {
-        select {
-        case log, ok := <-logs:
-            if !ok {
+	for {
+		select {
+		case log, ok := <-logs:
+			if !ok {
 				h.procState = drivers.TaskStateExited
 				h.exitResult.ExitCode = 143
 				h.exitResult.Signal = 15
 				h.completedAt = time.Now()
-                return // Logs channel closed
-            }			
+				return // Logs channel closed
+			}
 			now := time.Now().Format(time.RFC3339)
 			if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
@@ -467,18 +464,18 @@ func (h *taskHandle) run() {
 			if _, err := fmt.Fprintf(f, "%s\n", log); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
 			}
-        case err, ok := <-errs:
-            if ok {
+		case err, ok := <-errs:
+			if ok {
 				fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
-                log.Fatalf("Error: %v\n", err)
-            }
+				log.Fatalf("Error: %v\n", err)
+			}
 			h.procState = drivers.TaskStateExited
 			h.exitResult.ExitCode = 143
 			h.exitResult.Signal = 15
 			h.completedAt = time.Now()
-            return // Errors channel closed
-        }
-    }
+			return // Errors channel closed
+		}
+	}
 
 	h.stateLock.Lock()
 	defer h.stateLock.Unlock()

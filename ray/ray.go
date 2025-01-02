@@ -9,11 +9,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+
 	// "os/exec"
 	// "strings"
 	"net/http"
 	"text/template"
 	"time"
+
 	"github.com/ryadavDeqode/nomad-driver-ray/templates"
 )
 
@@ -38,7 +40,6 @@ type rayRestInterface interface {
 	DeleteActor(ctx context.Context, actor_id string) (string, error)
 
 	DeleteJob(ctx context.Context, submissionId string) (bool, error)
-
 
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
@@ -117,9 +118,9 @@ func generateScript(tmplContent string, task interface{}) (string, error) {
 func submitJob(ctx context.Context, endpoint string, entrypoint string, jobSubmissionID string) (string, error) {
 	// Build the request payload
 	payload := map[string]interface{}{
-		"entrypoint":  entrypoint,
-		"runtime_env": map[string]interface{}{},
-		"job_id":      nil,
+		"entrypoint":    entrypoint,
+		"runtime_env":   map[string]interface{}{},
+		"job_id":        nil,
 		"submission_id": jobSubmissionID,
 		// "metadata":    map[string]string{"job_submission_id": jobSubmissionID},
 	}
@@ -244,13 +245,16 @@ func (c rayRestClient) DeleteJob(ctx context.Context, submissionId string) (bool
 	return true, nil // Success, return actor status
 }
 
-
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
 	// actorStatus, err := GetActorStatus(context.Background(), cfg.Task.Actor)
 	jobDetails, err := GetJobDetails(context.Background(), cfg.Task.Actor)
-	
+	if err != nil {
+		fmt.Printf("Error fetching job details: %v\n", err)
+	} else {
+		fmt.Printf("Job details: %+v\n", jobDetails)
+	}
 
-	if jobDetails.Status != "RUNNING" || err != nil  {
+	if jobDetails.Status != "RUNNING" || err != nil {
 		_, err := DeleteJob(context.Background(), cfg.Task.Actor)
 		if err != nil {
 			return "", err
@@ -259,23 +263,22 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		if err != nil {
 			return "", fmt.Errorf("failed to generate runner script: %w", err)
 		}
-	
+
 		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, cfg.Task.Actor)
 		if err != nil {
 			return "", err
 		}
-	} 
-	
+	}
+
 	// Process the response if needed, assuming the actor's name is returned
 	return cfg.Task.Actor, nil
 }
 
-
 func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
 	data := map[string]interface{}{
 		"ServerName": "AlfredRayServeAPI",
-		"Namespace": GlobalConfig.TaskConfig.Task.Namespace,
+		"Namespace":  GlobalConfig.TaskConfig.Task.Namespace,
 	}
 	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
 	if err != nil {
@@ -291,4 +294,3 @@ func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
 
 	return "", nil
 }
-
