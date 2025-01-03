@@ -312,7 +312,7 @@ func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error
 func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 	url := RayClusterEndpoint + "/api/jobs/" + submissionId
-	jobDetails, err := GetJobDetails(ctx, submissionId)
+	jobDetails, _ := GetJobDetails(ctx, submissionId)
 	if jobDetails.Status == "NOT_FOUND" {
 		return true, nil
 	}
@@ -320,7 +320,7 @@ func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 	stopURL := RayClusterEndpoint + "/api/jobs/" + submissionId + "/stop"
 	var stopResponse interface{}
 
-	err = sendRequest(ctx, stopURL, nil, &stopResponse, "POST")
+	err := sendRequest(ctx, stopURL, nil, &stopResponse, "POST")
 	if err != nil {
 		return false, fmt.Errorf("failed to stop job with submission ID %s: %w", submissionId, err)
 	}
@@ -446,7 +446,7 @@ func (h *taskHandle) run() {
 	fmt.Fprintf(f, "Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
 	fmt.Fprintf(f, "Actor Status: %s \n", jobDetails.Status)
 
-	if err != nil || (jobDetails.Status != "RUNNING" && jobDetails.Status != "NOT_FOUND") {
+	if (jobDetails.Status != "RUNNING" && jobDetails.Status != "NOT_FOUND") {
 		// If job is PENDING, wait for 15 seconds and check again
 		// Proceed to delete the job
 		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
@@ -465,7 +465,6 @@ func (h *taskHandle) run() {
 		return // TODO: add a retry here
 	}
 
-	// Continue execution if job is running
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	logs, errs := tailJobLogs(ctx, actorID)

@@ -234,12 +234,23 @@ func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string
 func (c rayRestClient) DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 	url := RayClusterEndpoint + "/api/jobs/" + submissionId
+	jobDetails, _ := GetJobDetails(ctx, submissionId)
+	if jobDetails.Status == "NOT_FOUND" {
+		return true, nil
+	}
 
+	stopURL := RayClusterEndpoint + "/api/jobs/" + submissionId + "/stop"
+	var stopResponse interface{}
+
+	err := sendRequest(ctx, stopURL, nil, &stopResponse, "POST")
+	if err != nil {
+		return false, fmt.Errorf("failed to stop job with submission ID %s: %w", submissionId, err)
+	}
 	var response interface{}
 
-	err := sendRequest(ctx, url, nil, &response, "DELETE")
-	if err != nil {
-		return false, err
+	err_delete := sendRequest(ctx, url, nil, &response, "DELETE")
+	if err_delete != nil {
+		return false, err_delete
 	}
 
 	return true, nil // Success, return actor status
@@ -262,11 +273,14 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, str
 	if jobDetails.Status != "RUNNING" || err != nil {
 		//  delete only when the job is found but not running
 
-		_, err := DeleteJob(context.Background(), cfg.Task.Actor)
-		if err != nil {
-			fmt.Printf("Unable to delete the job '%s': %v. Proceeding to start a new job.\n", submission_id, jobDetailsStr)
+		if jobDetails.Status != "NOT_FOUND" {
+			_, err := DeleteJob(context.Background(), cfg.Task.Actor)
+			if err != nil {
+				fmt.Printf("Unable to delete the job '%s': %v. Proceeding to start a new job.\n", submission_id, jobDetailsStr)
 
+			}
 		}
+
 		scriptContent, err := generateScript(templates.RemoteRunnerTemplate, cfg.Task)
 		if err != nil {
 			return submission_id, jobDetailsStr, fmt.Errorf("failed to generate runner script: %w", err)
