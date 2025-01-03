@@ -312,12 +312,23 @@ func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error
 func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 	url := RayClusterEndpoint + "/api/jobs/" + submissionId
+	jobDetails, err := GetJobDetails(ctx, submissionId)
+	if jobDetails.Status == "NOT_FOUND" {
+		return true, nil
+	}
 
+	stopURL := RayClusterEndpoint + "/api/jobs/" + submissionId + "/stop"
+	var stopResponse interface{}
+
+	err = sendRequest(ctx, stopURL, nil, &stopResponse, "POST")
+	if err != nil {
+		return false, fmt.Errorf("failed to stop job with submission ID %s: %w", submissionId, err)
+	}
 	var response interface{}
 
-	err := sendRequest(ctx, url, nil, &response, "DELETE")
-	if err != nil {
-		return false, err
+	err_delete := sendRequest(ctx, url, nil, &response, "DELETE")
+	if err_delete != nil {
+		return false, err_delete
 	}
 
 	return true, nil // Success, return actor status
