@@ -446,7 +446,7 @@ func (h *taskHandle) run() {
 	fmt.Fprintf(f, "Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
 	fmt.Fprintf(f, "Actor Status: %s \n", jobDetails.Status)
 
-	if err != nil || jobDetails.Status != "RUNNING" {
+	if err != nil || (jobDetails.Status != "RUNNING" && jobDetails.Status != "NOT_FOUND") {
 		// If job is PENDING, wait for 15 seconds and check again
 		// Proceed to delete the job
 		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
