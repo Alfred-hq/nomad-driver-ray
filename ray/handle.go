@@ -215,18 +215,6 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 
 // GetJobDetails sends a POST request to the specified URL with the given actor_id
 func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse, error) {
-	// RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
-	// url := RayClusterEndpoint + "/api/jobs/" + submissionId
-
-	// var response JobDetailsResponse
-
-	// err := sendRequest(ctx, url, nil, &response, "GET")
-	// if err != nil {
-	// 	return JobDetailsResponse{}, err
-	// }
-
-	// return response, nil // Success, return actor status
-
 	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 	url := RayClusterEndpoint + "/api/jobs/" + submissionId
 
@@ -234,6 +222,7 @@ func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse
 	if err != nil {
 		return JobDetailsResponse{}, fmt.Errorf("failed to create request for job details: %w", err)
 	}
+
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -248,11 +237,28 @@ func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse
 	}
 	fmt.Printf("Raw response body from GetJobDetails: %s\n", string(responseBody))
 
+	// Handle 404 or specific error messages
+	if resp.StatusCode == http.StatusNotFound || strings.Contains(string(responseBody), "does not exist") {
+		return JobDetailsResponse{
+			JobID:        "",
+			SubmissionID: submissionId,
+			Status:       "NOT_FOUND",
+			Message:      "Job details not found",
+		}, nil
+	}
+
+	// Check for other non-200 status codes
+	if resp.StatusCode != http.StatusOK {
+		return JobDetailsResponse{}, fmt.Errorf("unexpected status code: %d, url: %s, submission_id: %s", resp.StatusCode, url, submissionId)
+	}
+
+	// Try unmarshaling the response into the struct
 	var response JobDetailsResponse
 	err = json.Unmarshal(responseBody, &response)
 	if err != nil {
-		return JobDetailsResponse{}, fmt.Errorf("failed to unmarshal response for job details: %w, raw response: %s , url: %s, submission_id: %s", err, string(responseBody), string(url), string(submissionId))
+		return JobDetailsResponse{}, fmt.Errorf("failed to unmarshal response for job details: %w, raw response: %s, url: %s, submission_id: %s", err, string(responseBody), url, submissionId)
 	}
+
 	return response, nil
 }
 
