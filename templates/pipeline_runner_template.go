@@ -56,8 +56,10 @@ def main():
 
         # Execute the pipeline function directly
         getattr(pipeline_module, \"{{.PipelineRunner}}\")()
+        
     except Exception as e:
         print(f\"Error running workflow: {e}\")
+        ray.shutdown()
 
 ray.get(main.remote())
 

@@ -441,28 +441,13 @@ func (h *taskHandle) run() {
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
 
 	// Fetch job details
+	time.Sleep(10 * time.Second)
 	jobDetails, err := GetJobDetails(h.ctx, actorID)
 	fmt.Fprintf(f, "Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
 	fmt.Fprintf(f, "Actor Status: %s \n", jobDetails.Status)
 
 	if err != nil || jobDetails.Status != "RUNNING" {
 		// If job is PENDING, wait for 15 seconds and check again
-		if jobDetails.Status == "PENDING" {
-			fmt.Fprintf(f, "Job status is PENDING. Waiting for 15 seconds before re-checking.\n")
-			time.Sleep(15 * time.Second)
-
-			// Re-fetch job details
-			jobDetails, err = GetJobDetails(h.ctx, actorID)
-			fmt.Fprintf(f, "Rechecked Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
-			fmt.Fprintf(f, "Rechecked Actor Status: %s \n", jobDetails.Status)
-
-			// If job is now running, do not delete it but continue execution
-			if err == nil && jobDetails.Status == "RUNNING" {
-				fmt.Fprintf(f, "Job is now RUNNING. Skipping deletion and continuing execution.\n")
-				goto CONTINUE_EXECUTION
-			}
-		}
-
 		// Proceed to delete the job
 		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
 		fmt.Fprintf(f, "Killing existing actor.\n")
@@ -480,7 +465,6 @@ func (h *taskHandle) run() {
 		return // TODO: add a retry here
 	}
 
-CONTINUE_EXECUTION:
 	// Continue execution if job is running
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
