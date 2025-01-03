@@ -415,7 +415,8 @@ func (h *taskHandle) run() {
 	fmt.Println("Inside Run")
 	defer close(h.doneCh)
 	h.stateLock.Lock()
-	// Open the tasks StdoutPath so we can write task health status updates.
+
+	// Open the task's StdoutPath to write task health status updates.
 	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 	if h.exitResult == nil {
 		fmt.Fprintf(f, "Exit result is null")
@@ -427,19 +428,22 @@ func (h *taskHandle) run() {
 		h.handleRunError(err, "failed to open task stdout path")
 		return
 	}
+
 	defer func() {
 		if err := f.Close(); err != nil {
 			fmt.Fprintf(f, "failed to close task stdout handle correctly")
 			h.logger.Error("failed to close task stdout handle correctly", "error", err)
 		}
 	}()
+
 	// Set the actor status and logs URLs
 	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
-	// Block until stopped, doing nothing in the meantime.
+
+	// Fetch job details
 	jobDetails, err := GetJobDetails(h.ctx, actorID)
 	fmt.Fprintf(f, "Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
-	fmt.Fprintf(f, "Actor Status %s \n", jobDetails.Status)
+	fmt.Fprintf(f, "Actor Status: %s \n", jobDetails.Status)
 
 	if err != nil || jobDetails.Status != "RUNNING" {
 		// If job is PENDING, wait for 15 seconds and check again
@@ -452,20 +456,22 @@ func (h *taskHandle) run() {
 			fmt.Fprintf(f, "Rechecked Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
 			fmt.Fprintf(f, "Rechecked Actor Status: %s \n", jobDetails.Status)
 
-			// If job is now running, do not delete it
+			// If job is now running, do not delete it but continue execution
 			if err == nil && jobDetails.Status == "RUNNING" {
-				fmt.Fprintf(f, "Job is now RUNNING. Avoiding deletion.\n")
-				return
+				fmt.Fprintf(f, "Job is now RUNNING. Skipping deletion and continuing execution.\n")
+				goto CONTINUE_EXECUTION
 			}
 		}
+
+		// Proceed to delete the job
 		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-		fmt.Fprintf(f, "Killing exisiting actor.")
+		fmt.Fprintf(f, "Killing existing actor.\n")
 		_, err = DeleteJob(context.Background(), actorID)
 
 		if err != nil {
 			fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
 		} else {
-			fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
+			fmt.Fprintf(f, "Remote task stopped - [%s]\n", actorID)
 		}
 		h.procState = drivers.TaskStateExited
 		h.exitResult.ExitCode = 143
@@ -474,6 +480,8 @@ func (h *taskHandle) run() {
 		return // TODO: add a retry here
 	}
 
+CONTINUE_EXECUTION:
+	// Continue execution if job is running
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	logs, errs := tailJobLogs(ctx, actorID)
@@ -520,8 +528,8 @@ func (h *taskHandle) run() {
 	}
 
 	h.procState = drivers.TaskStateExited
-	h.exitResult.ExitCode = 0
-	h.exitResult.Signal = 0
+	h.exitResult.ExitCode = 143
+	h.exitResult.Signal = 15
 	h.completedAt = time.Now()
 }
 
