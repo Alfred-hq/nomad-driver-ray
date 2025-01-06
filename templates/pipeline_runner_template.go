@@ -41,8 +41,8 @@ import os
 import sys
 import importlib
 
-ray.init(address=\"auto\", namespace=\"{{.Namespace}}\" , num_cpus=\"{{.NumCPUs}}\")
-@ray.remote
+ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
+@ray.remote(num_cpus=\"{{.NumCPUs}}\")
 def main():
     try:
         # Add the pipeline file directory to the Python path
