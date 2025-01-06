@@ -52,15 +52,14 @@ def main():
     try:
 
         def handle_termination_signal(signum, frame):
-            print("Termination signal received. Exiting immediately!")
+            print(\"Termination signal received. Exiting immediately!\")
             exit(0)
 
         signal.signal(signal.SIGTERM, handle_termination_signal)
         signal.signal(signal.SIGINT, handle_termination_signal)
 
-        # Simulate a long-running task
         while True:
-            print("Working...")
+            print(\"Working...\")
             time.sleep(1)
 
         
