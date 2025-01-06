@@ -40,22 +40,29 @@ import ray
 import os
 import sys
 import importlib
+import signal
+import time
 
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
 @ray.remote(num_cpus={{.NumCPUs}})
+
+
+
 def main():
     try:
-        # Add the pipeline file directory to the Python path
-        directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
-        file_name = os.path.splitext(os.path.basename(\"{{.PipelineFilePath}}\"))[0]
 
-        sys.path.append(directory_path)
+        def handle_termination_signal(signum, frame):
+            print("Termination signal received. Exiting immediately!")
+            exit(0)
 
-        # Dynamically import the pipeline module
-        pipeline_module = importlib.import_module(file_name)
+        signal.signal(signal.SIGTERM, handle_termination_signal)
+        signal.signal(signal.SIGINT, handle_termination_signal)
 
-        # Execute the pipeline function directly
-        getattr(pipeline_module, \"{{.PipelineRunner}}\")()
+        # Simulate a long-running task
+        while True:
+            print("Working...")
+            time.sleep(1)
+
         
     except Exception as e:
         print(f\"Error running workflow: {e}\")
