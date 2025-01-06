@@ -338,6 +338,9 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 
 func (d *Driver) StartRayServeApi(f io.WriteCloser) error {
+	rayServeMutex.Lock() // Lock to protect the shared state
+    defer rayServeMutex.Unlock()
+	
 	fmt.Fprintf(f, "Is ray serve started - %t\n", isRayServeApiStarted)
 
     _, err := d.client.GetRayServeHealth(context.Background())
@@ -350,9 +353,6 @@ func (d *Driver) StartRayServeApi(f io.WriteCloser) error {
     if isRayServeApiStarted {
         return nil // Ray Serve API already started, no need to run again
     }
-
-    rayServeMutex.Lock() // Lock to protect the shared state
-    defer rayServeMutex.Unlock()
 
 	fmt.Fprintf(f, "Is ray serve running -  %t\n", isRayServeApiRunning)
 
