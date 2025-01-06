@@ -41,7 +41,7 @@ import os
 import sys
 import importlib
 
-ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
+ray.init(address=\"auto\", namespace=\"{{.Namespace}}\" , num_cpus=\"{{.NumCPUs}}\")
 @ray.remote
 def main():
     try:
