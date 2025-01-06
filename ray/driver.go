@@ -438,14 +438,18 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		h.exitResult.Signal = 15
 		h.completedAt = time.Now()
 		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
-		return nil, nil, nil
+		return handle, nil, nil
 	}
 
 	// Start the task
 	_, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
+		h.procState = drivers.TaskStateExited
+		h.exitResult.ExitCode = 143
+		h.exitResult.Signal = 15
+		h.completedAt = time.Now()
 		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
-		return nil, nil, fmt.Errorf("failed to start ray task: %v", err)
+		return handle, nil, nil
 	}
 
 	// driverState.Actor = actor
