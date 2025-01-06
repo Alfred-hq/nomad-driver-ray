@@ -438,7 +438,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		h.exitResult.Signal = 15
 		h.completedAt = time.Now()
 		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
-		return nil, nil, fmt.Errorf("failed to start Ray Serve API: %v", err)
+		return 
 	}
 
 	// Start the task
