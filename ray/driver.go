@@ -310,12 +310,16 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 
 	fmt.Fprintf(f, "Ray task recovered \n", err)
 
+	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
+
 	if err := d.StartRayServeApi(f); err != nil {
+		h.procState = drivers.TaskStateExited
+		h.exitResult.ExitCode = 143
+		h.exitResult.Signal = 15
+		h.completedAt = time.Now()
 		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
 		return fmt.Errorf("failed to start Ray Serve API: %v", err)
 	}
-
-	h := newTaskHandle(d.logger, taskState, handle.Config, d.client)
 
 	var driverConfig TaskConfig
 	if err := handle.Config.DecodeDriverConfig(&driverConfig); err != nil {
@@ -429,6 +433,10 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
 	if err := d.StartRayServeApi(f); err != nil {
+		h.procState = drivers.TaskStateExited
+		h.exitResult.ExitCode = 143
+		h.exitResult.Signal = 15
+		h.completedAt = time.Now()
 		fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
 		return nil, nil, fmt.Errorf("failed to start Ray Serve API: %v", err)
 	}
