@@ -39,7 +39,9 @@ const RemoteRunnerTemplate = `
 import ray
 import os
 import sys
+import asyncio
 import importlib
+import signal
 
 task_ref = None
 
