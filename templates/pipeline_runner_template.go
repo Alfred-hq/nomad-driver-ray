@@ -7,9 +7,14 @@ import time
 import sys
 import os
 import importlib
+import psutil
 
 @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
+    def __init__(self) -> None:
+        self.finished = False
+        self.period = 180
+
     def {{.Runner}}(self):
         try:
             directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
@@ -27,8 +32,21 @@ class {{.Actor}}:
         except Exception as e:
             print(e)
         finally:
+            self.finished = True
             ray.actor.exit_actor()
 
+    def monitor(self):
+        worker_pid = os.getpid()
+        print(f"Monitoring PID {worker_pid}")
+        process = psutil.Process(worker_pid)
+        while not self.finished:
+            memory_used = process.memory_info().rss
+            memory_used_mb = memory_used / (1024 ** 2)
+            print(f"Task is using {memory_used_mb} MB")
+            if memory_used_mb > 6000:
+                ray.actor.exit_actor()
+            else:
+                time.sleep(self.period) 
 
 # Initialize connection to the Ray head node on the default port.
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
@@ -49,6 +67,7 @@ def main():
 
         # Trigger the actor's runner method without waiting for completion
         actor.runner.remote()
+        actor.monitor.remote()
     except Exception as e:
         print(e)
 
