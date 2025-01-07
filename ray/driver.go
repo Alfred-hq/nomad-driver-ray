@@ -430,6 +430,8 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		DriverConfig: cfg,
 		TaskConfig:   driverConfig,
 	}
+	
+	d.tasks.Set(cfg.ID, h)
 
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
 	if err := d.StartRayServeApi(f); err != nil {
@@ -459,8 +461,6 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		fmt.Fprintf(f, "failed to set driver state: %v\n", err)
 		return nil, nil, fmt.Errorf("failed to set driver state: %v", err)
 	}
-
-	d.tasks.Set(cfg.ID, h)
 
 	go h.run()
 
