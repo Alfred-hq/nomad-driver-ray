@@ -317,9 +317,9 @@ func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 		return true, nil
 	}
 
-	stopURL := RayClusterEndpoint + "/api/jobs/" + submissionId + "/stop"
+	stopURL := RayClusterEndpoint + "/api/jobs/" + submissionId + "/stop?force=true"
 	var stopResponse interface{}
-
+	fmt.Printf("Trying to stop Task %s", submissionId)
 	err := sendRequest(ctx, stopURL, nil, &stopResponse, "POST")
 	if err != nil {
 		return false, fmt.Errorf("failed to stop job with submission ID %s: %w", submissionId, err)
@@ -446,7 +446,7 @@ func (h *taskHandle) run() {
 	fmt.Fprintf(f, "Job Details for Actor -%v , %s: %+v\n", err, actorID, jobDetails)
 	fmt.Fprintf(f, "Actor Status: %s \n", jobDetails.Status)
 
-	if (jobDetails.Status != "RUNNING" && jobDetails.Status != "NOT_FOUND") {
+	if jobDetails.Status != "RUNNING" && jobDetails.Status != "NOT_FOUND" {
 		// If job is PENDING, wait for 15 seconds and check again
 		// Proceed to delete the job
 		fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)

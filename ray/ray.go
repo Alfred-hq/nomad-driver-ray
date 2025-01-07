@@ -241,6 +241,7 @@ func (c rayRestClient) DeleteJob(ctx context.Context, submissionId string) (bool
 
 	stopURL := RayClusterEndpoint + "/api/jobs/" + submissionId + "/stop"
 	var stopResponse interface{}
+	fmt.Printf("Trying to stop Task %s", submissionId)
 
 	err := sendRequest(ctx, stopURL, nil, &stopResponse, "POST")
 	if err != nil {
