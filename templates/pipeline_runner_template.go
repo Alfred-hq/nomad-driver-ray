@@ -41,7 +41,6 @@ import os
 import sys
 import importlib
 
-ray.init(address=\"auto\", namespace=\"{{.Namespace}}\" , num_cpus=\"{{.NumCPUs}}\")
 task_ref = None
 
 # Signal handler function to cancel the Ray task
