@@ -43,7 +43,7 @@ class {{.Actor}}:
             memory_used = process.memory_info().rss
             memory_used_mb = memory_used / (1024 ** 2)
             print(f"Task is using {memory_used_mb} MB")
-            if memory_used_mb > 6000:
+            if memory_used_mb > 1000:
                 ray.actor.exit_actor()
             else:
                 time.sleep(self.period) 
