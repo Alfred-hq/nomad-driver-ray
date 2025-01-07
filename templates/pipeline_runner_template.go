@@ -33,6 +33,7 @@ class {{.Actor}}:
             print(e)
         finally:
             self.finished = True
+            print(f\"Killing actor due to failure in runner task\")
             ray.actor.exit_actor()
 
     def monitor(self):
@@ -44,9 +45,13 @@ class {{.Actor}}:
             memory_used_mb = memory_used / (1024 ** 2)
             print(f\"Task is using {memory_used_mb} MB\")
             if memory_used_mb > 1000:
+                print(f\"Killing actor due to memory usage above threshold\")
                 ray.actor.exit_actor()
             else:
+                print(f\"Sleeping for {self.period}s before checking memory usage again\")
                 time.sleep(self.period) 
+        print(f\"Monitor Task Completed\")
+        
 
 # Initialize connection to the Ray head node on the default port.
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
