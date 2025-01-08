@@ -359,26 +359,26 @@ func (h *taskHandle) run() {
 			return
 		}
 
-		memory, err := GetActorMemory(h.ctx, actorID)
-		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
+		// memory, err := GetActorMemory(h.ctx, actorID)
+		// fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
 		
-		if err != nil {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
-			return
-		}
+		// if err != nil {
+		// 	h.procState = drivers.TaskStateExited
+		// 	h.exitResult.ExitCode = 143
+		// 	h.exitResult.Signal = 15
+		// 	h.completedAt = time.Now()
+		// 	fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
+		// 	return
+		// }
 
-		if memory > 1000 {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
-			return
-		}
+		// if memory > 1000 {
+		// 	h.procState = drivers.TaskStateExited
+		// 	h.exitResult.ExitCode = 143
+		// 	h.exitResult.Signal = 15
+		// 	h.completedAt = time.Now()
+		// 	fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
+		// 	return
+		// }
 		// Sleep for a specified interval before checking again
 		select {
 		case <-time.After(10 * time.Second):
