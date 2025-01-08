@@ -14,6 +14,7 @@ class {{.Actor}}:
     def __init__(self) -> None:
         self.finished = False
         self.period = 180
+        self.runner_task_ref = None 
 
     def {{.Runner}}(self):
         try:
@@ -36,6 +37,11 @@ class {{.Actor}}:
             print(f\"Killing actor due to failure in runner task\")
             ray.actor.exit_actor()
 
+    def start_task(self):
+        if not self.runner_task_ref:
+            self.runner_task_ref = self.runner.remote()
+            print("Task started.")
+
     def monitor(self):
         worker_pid = os.getpid()
         print(f\"Monitoring PID {worker_pid}\")
@@ -44,9 +50,11 @@ class {{.Actor}}:
             memory_used = process.memory_info().rss
             memory_used_mb = memory_used / (1024 ** 2)
             print(f\"Task is using {memory_used_mb} MB\")
-            if memory_used_mb > 1000:
+            if memory_used_mb > 500:
                 print(f\"Killing actor due to memory usage above threshold\")
-                ray.actor.exit_actor()
+                ray.cancel(self.runner_task_ref, force=True, recursive=True)
+                ray.actor.exit_actor();
+                self.finished = True
             else:
                 print(f\"Sleeping for {self.period}s before checking memory usage again\")
                 time.sleep(self.period) 
@@ -71,7 +79,7 @@ def main():
         actor = ray.get_actor(\"{{.Actor}}\")
 
         # Trigger the actor's runner method without waiting for completion
-        actor.runner.remote()
+        actor.start_task.remote()
         actor.monitor.remote()
     except Exception as e:
         print(e)
