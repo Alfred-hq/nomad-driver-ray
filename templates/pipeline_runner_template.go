@@ -81,8 +81,6 @@ def main():
 
         # Trigger the actor's runner method without waiting for completion
         runner_task_ref = actor.runner.remote()
-        actor.set_task_ref.remote(runner_task_ref)
-        actor.monitor.remote()
     except Exception as e:
         print(e)
 

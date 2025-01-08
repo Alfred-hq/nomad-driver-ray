@@ -440,10 +440,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	_, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
 		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
-	} else {
-		d.tasks.Set(cfg.ID, h)
-	}
-
+	} 
 	// driverState.Actor = actor
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)
@@ -451,6 +448,8 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		fmt.Fprintf(f, "failed to set driver state: %v\n", err)
 		return nil, nil, fmt.Errorf("failed to set driver state: %v", err)
 	}
+
+	d.tasks.Set(cfg.ID, h)
 
 	go h.run()
 

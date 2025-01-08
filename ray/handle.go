@@ -12,13 +12,15 @@ import (
 	"net/http"
 	// "net/url"
 
-	// "strings"
+	"strings"
 	"sync"
 	"time"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/stats"
 	"github.com/hashicorp/nomad/plugins/drivers"
+	"strconv",
+	"bufio"
 )
 
 // // These represent the ECS task terminal lifecycle statuses.
@@ -179,6 +181,41 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 	return response.ActorStatus, nil // Success, return actor status
 }
 
+func GetActorMemory(ctx context.Context, actorID string) (string, error) {
+	url := "http://localhost:8088"
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("Error fetching metrics: %v\n", err)
+	}
+	defer resp.Body.Close()
+
+	// Read the response line by line
+	scanner := bufio.NewScanner(resp.Body)
+	var value float64
+	for scanner.Scan() {
+		line := scanner.Text()
+		// Match the exact metric name
+		if strings.Contains(line, fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)) {
+			// Extract the value (last part of the line)
+			parts := strings.Fields(line)
+			if len(parts) > 1 {
+				value, err = strconv.ParseFloat(parts[1], 64)
+				if err != nil {
+					return nil, fmt.Errorf("Error parsing value: %v\n", err)
+				}
+				break
+			}
+		}
+	}
+
+	// Check if the value was found
+	if value == 0 && err == nil {
+		return nil, fmt.Errorf("Metric not found")
+	}
+
+	return value, nil
+}
 
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
@@ -317,9 +354,29 @@ func (h *taskHandle) run() {
 			fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
 			return
 		}
+
+		memory, err := GetActorMemory(h.ctx, actorID)
+		
+		if err != nil {
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
+			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
+			return
+		}
+
+		if memory > 1000 {
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
+			fmt.Fprintf(f, "Memory usage is above threshold. \n")
+			return
+		}
 		// Sleep for a specified interval before checking again
 		select {
-		case <-time.After(5 * time.Second):
+		case <-time.After(10 * time.Second):
 			// Continue checking after 2 seconds
 			now := time.Now().Format(time.RFC3339)
 			if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
