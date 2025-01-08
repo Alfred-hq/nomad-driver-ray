@@ -37,9 +37,9 @@ class {{.Actor}}:
             print(f\"Killing actor due to failure in runner task\")
             ray.actor.exit_actor()
 
-    def start_task(self):
+    def set_task_ref(self, task_ref):
         if not self.runner_task_ref:
-            self.runner_task_ref = self.runner.remote()
+            self.runner_task_ref = task_ref
             print(\"Task started.\")
 
     def monitor(self):
@@ -61,6 +61,7 @@ class {{.Actor}}:
         print(f\"Monitor Task Completed\")
         
 
+
 # Initialize connection to the Ray head node on the default port.
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
 
@@ -79,7 +80,8 @@ def main():
         actor = ray.get_actor(\"{{.Actor}}\")
 
         # Trigger the actor's runner method without waiting for completion
-        actor.start_task.remote()
+        runner_task_ref = actor.runner.remote()
+        actor.set_task_ref.remote(runner_task_ref)
         actor.monitor.remote()
     except Exception as e:
         print(e)
