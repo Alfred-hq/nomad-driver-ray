@@ -181,28 +181,32 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 	return response.ActorStatus, nil // Success, return actor status
 }
 
-func GetActorMemory(ctx context.Context, actorID string) (string, error) {
+func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 	url := "http://localhost:8088"
 
 	resp, err := http.Get(url)
 	if err != nil {
-		return nil, fmt.Errorf("Error fetching metrics: %v\n", err)
+		return 0, fmt.Errorf("error fetching metrics: %v", err)
 	}
 	defer resp.Body.Close()
 
 	// Read the response line by line
 	scanner := bufio.NewScanner(resp.Body)
-	var value float64
+	var value int
+	targetMetric := fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)
+
 	for scanner.Scan() {
 		line := scanner.Text()
-		// Match the exact metric name
-		if strings.Contains(line, fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)) {
+
+		// Check if the line contains the target metric
+		if strings.Contains(line, targetMetric) {
 			// Extract the value (last part of the line)
 			parts := strings.Fields(line)
 			if len(parts) > 1 {
-				value, err = strconv.ParseFloat(parts[1], 64)
+				// Convert the value to an integer
+				value, err = strconv.Atoi(strings.TrimSpace(parts[1]))
 				if err != nil {
-					return nil, fmt.Errorf("Error parsing value: %v\n", err)
+					return 0, fmt.Errorf("error parsing value: %v", err)
 				}
 				break
 			}
@@ -210,8 +214,8 @@ func GetActorMemory(ctx context.Context, actorID string) (string, error) {
 	}
 
 	// Check if the value was found
-	if value == 0 && err == nil {
-		return nil, fmt.Errorf("Metric not found")
+	if value == 0 {
+		return 0, fmt.Errorf("metric not found or value is zero")
 	}
 
 	return value, nil
