@@ -360,6 +360,7 @@ func (h *taskHandle) run() {
 		}
 
 		memory, err := GetActorMemory(h.ctx, actorID)
+		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
 		
 		if err != nil {
 			h.procState = drivers.TaskStateExited
@@ -375,7 +376,7 @@ func (h *taskHandle) run() {
 			h.exitResult.ExitCode = 143
 			h.exitResult.Signal = 15
 			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Memory usage is above threshold. \n")
+			fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
 			return
 		}
 		// Sleep for a specified interval before checking again
