@@ -40,7 +40,7 @@ class {{.Actor}}:
     def start_task(self):
         if not self.runner_task_ref:
             self.runner_task_ref = self.runner.remote()
-            print("Task started.")
+            print(\"Task started.\")
 
     def monitor(self):
         worker_pid = os.getpid()
@@ -53,7 +53,7 @@ class {{.Actor}}:
             if memory_used_mb > 500:
                 print(f\"Killing actor due to memory usage above threshold\")
                 ray.cancel(self.runner_task_ref, force=True, recursive=True)
-                ray.actor.exit_actor();
+                ray.actor.exit_actor()
                 self.finished = True
             else:
                 print(f\"Sleeping for {self.period}s before checking memory usage again\")
