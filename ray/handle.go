@@ -363,16 +363,18 @@ func (h *taskHandle) run() {
 		}
 
 		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
-
-		if memory > int(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold) {
+		memoryThreshold, err := strconv.Atoi(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold)
+		if err != nil {
+		  fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
+		} else if memory > memoryThreshold {
 			h.procState = drivers.TaskStateExited
 			h.exitResult.ExitCode = 143
 			h.exitResult.Signal = 15
 			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
+			fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
 			return
 		}
-
+		
 		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
 
 		actorLogs, err := GetActorLogs(h.ctx, actorID)
