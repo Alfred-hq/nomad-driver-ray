@@ -184,6 +184,7 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 	url := "http://localhost:8088"
 
+	// Send a GET request
 	resp, err := http.Get(url)
 	if err != nil {
 		return 0, fmt.Errorf("error fetching metrics: %v", err)
@@ -192,8 +193,9 @@ func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 
 	// Read the response line by line
 	scanner := bufio.NewScanner(resp.Body)
-	var value int
-	targetMetric := fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)
+	var value float64
+	
+	 := fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -203,8 +205,8 @@ func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 			// Extract the value (last part of the line)
 			parts := strings.Fields(line)
 			if len(parts) > 1 {
-				// Convert the value to an integer
-				value, err = strconv.Atoi(strings.TrimSpace(parts[1]))
+				// Convert the value to a float
+				value, err = strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
 				if err != nil {
 					return 0, fmt.Errorf("error parsing value: %v", err)
 				}
@@ -218,7 +220,8 @@ func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 		return 0, fmt.Errorf("metric not found or value is zero")
 	}
 
-	return value, nil
+	// Convert float value to integer and return
+	return int(value), nil
 }
 
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
@@ -347,7 +350,32 @@ func (h *taskHandle) run() {
 			return // TODO: add a retry here
 		}
 
-		fmt.Fprintf(f, "Actor is ALIVE, Fetching Logs \n")
+		fmt.Fprintf(f, "Actor is ALIVE, Fetching Memory USAGE \n")
+
+		memory, err := GetActorMemory(h.ctx, actorID)
+		
+		if err != nil {
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
+			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
+			return
+		}
+		
+		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
+
+		if memory > 1000 {
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
+			fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
+			return
+		}
+
+		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
+
 		actorLogs, err := GetActorLogs(h.ctx, actorID)
 		
 		if err != nil {
@@ -359,26 +387,7 @@ func (h *taskHandle) run() {
 			return
 		}
 
-		// memory, err := GetActorMemory(h.ctx, actorID)
-		// fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
-		
-		// if err != nil {
-		// 	h.procState = drivers.TaskStateExited
-		// 	h.exitResult.ExitCode = 143
-		// 	h.exitResult.Signal = 15
-		// 	h.completedAt = time.Now()
-		// 	fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
-		// 	return
-		// }
 
-		// if memory > 1000 {
-		// 	h.procState = drivers.TaskStateExited
-		// 	h.exitResult.ExitCode = 143
-		// 	h.exitResult.Signal = 15
-		// 	h.completedAt = time.Now()
-		// 	fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
-		// 	return
-		// }
 		// Sleep for a specified interval before checking again
 		select {
 		case <-time.After(10 * time.Second):
