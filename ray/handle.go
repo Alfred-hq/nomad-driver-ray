@@ -12,7 +12,6 @@ import (
 	"net/http"
 	// "net/url"
 
-	"strings"
 	"sync"
 	"time"
 	"github.com/hashicorp/go-hclog"
@@ -21,6 +20,7 @@ import (
 	"github.com/hashicorp/nomad/plugins/drivers"
 	"strconv"
 	"bufio"
+	"regexp"
 )
 
 // // These represent the ECS task terminal lifecycle statuses.
@@ -184,45 +184,44 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 	url := "http://localhost:8088"
 
-	// Send a GET request
+	// Append ".runner" to the actorID for metric matching
+	actorIDWithSuffix := fmt.Sprintf(`%s.runner`, actorID)
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return 0, fmt.Errorf("error fetching metrics: %v", err)
 	}
 	defer resp.Body.Close()
 
-	// Read the response line by line
 	scanner := bufio.NewScanner(resp.Body)
 	var value float64
-	
-	targetMetric := fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)
+
+	// Use regex to match the metric line
+	regexPattern := fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s".*} ([0-9.]+)`, regexp.QuoteMeta(actorIDWithSuffix))
+	metricRegex := regexp.MustCompile(regexPattern)
 
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Check if the line contains the target metric
-		if strings.Contains(line, targetMetric) {
-			// Extract the value (last part of the line)
-			parts := strings.Fields(line)
-			if len(parts) > 1 {
-				// Convert the value to a float
-				value, err = strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
-				if err != nil {
-					return 0, fmt.Errorf("error parsing value: %v", err)
-				}
-				break
+		// Find matching metric line
+		matches := metricRegex.FindStringSubmatch(line)
+		if len(matches) == 2 {
+			// Parse the matched value
+			value, err = strconv.ParseFloat(matches[1], 64)
+			if err != nil {
+				return 0, fmt.Errorf("error parsing value: %v", err)
 			}
+			break
 		}
 	}
 
-	// Check if the value was found
 	if value == 0 {
 		return 0, fmt.Errorf("metric not found or value is zero")
 	}
 
-	// Convert float value to integer and return
 	return int(value), nil
 }
+
 
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
