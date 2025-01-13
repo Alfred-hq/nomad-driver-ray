@@ -182,7 +182,7 @@ func GetActorStatus(ctx context.Context, actorID string) (string, error) {
 }
 
 func GetActorMemory(ctx context.Context, actorID string) (int, error) {
-	url := "http://localhost:8088"
+	url := GlobalConfig.TaskConfig.Task.RayMetricsEndpoint
 
 	// Append ".runner" to the actorID for metric matching
 	actorIDWithSuffix := fmt.Sprintf(`%s.runner`, actorID)
@@ -364,7 +364,7 @@ func (h *taskHandle) run() {
 
 		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
 
-		if memory > 2000 {
+		if memory > int(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold) {
 			h.procState = drivers.TaskStateExited
 			h.exitResult.ExitCode = 143
 			h.exitResult.Signal = 15
