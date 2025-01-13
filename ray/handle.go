@@ -367,12 +367,18 @@ func (h *taskHandle) run() {
 		if err != nil {
 		  fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
 		} else if memory > memoryThreshold {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
 			fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
-			return
+			_, err = DeleteActor(context.Background(), actorID)
+			if err != nil {
+				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
+			} else {
+				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
+				h.procState = drivers.TaskStateExited
+				h.exitResult.ExitCode = 143
+				h.exitResult.Signal = 15
+				h.completedAt = time.Now()
+				return
+			}
 		}
 		
 		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
