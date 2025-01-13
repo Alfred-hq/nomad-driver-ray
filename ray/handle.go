@@ -195,7 +195,7 @@ func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 	scanner := bufio.NewScanner(resp.Body)
 	var value float64
 	
-	 := fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)
+	targetMetric := fmt.Sprintf(`ray_component_uss_mb{Component="ray::%s"`, actorID)
 
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -362,7 +362,7 @@ func (h *taskHandle) run() {
 			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
 			return
 		}
-		
+
 		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
 
 		if memory > 1000 {
