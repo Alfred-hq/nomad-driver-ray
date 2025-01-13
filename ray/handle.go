@@ -354,24 +354,24 @@ func (h *taskHandle) run() {
 		memory, err := GetActorMemory(h.ctx, actorID)
 		
 		if err != nil {
-			// h.procState = drivers.TaskStateExited
-			// h.exitResult.ExitCode = 143
-			// h.exitResult.Signal = 15
-			// h.completedAt = time.Now()
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
 			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
-			// return
+			return
 		}
 
 		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
 
-		// if memory > 1000 {
-		// 	h.procState = drivers.TaskStateExited
-		// 	h.exitResult.ExitCode = 143
-		// 	h.exitResult.Signal = 15
-		// 	h.completedAt = time.Now()
-		// 	fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
-		// 	return
-		// }
+		if memory > 2000 {
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
+			fmt.Fprintf(f, "Memory usage is above threshold. Exiting\n")
+			return
+		}
 
 		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
 
