@@ -1,58 +1,71 @@
 package templates
 
-// Rename dummy_template to DummyTemplate to export it
-// const RayActorTemplate = `
-// import ray
-// import time
-// import sys
-// import os
-// import importlib
-
-// @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
-// class {{.Actor}}:
-//     def {{.Runner}}(self):
-//         try:
-//             directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
-
-//             # Get the file name without the extension
-//             file_name = os.path.splitext(os.path.basename(\"{{.PipelineFilePath}}\"))[0]
-
-//             sys.path.append(directory_path)
-
-//             # Dynamically import the module
-//             pipeline_module = importlib.import_module(file_name)
-
-//             # Execute the pipeline function
-//             getattr(pipeline_module, \"{{.PipelineRunner}}\")()
-//         except Exception as e:
-//             print(e)
-//         finally:
-//             ray.actor.exit_actor()
-
-// # Initialize connection to the Ray head node on the default port.
-// ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
-
-// pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_concurrency=2, num_cpus={{.NumCPUs}}).remote()
-// `
-
 const RemoteRunnerTemplate = `
 import ray
 import os
 import sys
 import importlib
+import asyncio
+import signal
+import uvloop
 
 ray.init(address="auto", namespace="{{.Namespace}}")
 
-def main():
+async def wait_for_interrupt():
     try:
-        # Dummy job: loop 10,000 times, log and sleep
-        for i in range(10000):
-            print(f"Loop iteration {i+1} / 10000")
-            time.sleep(0.1)  # Sleep for 0.1 seconds between iterations
-    except Exception as e:
-        print(f"Error running dummy job: {e}")
+        await asyncio.Future()  # Await a never-completing future
+    except asyncio.CancelledError:
+        print("Interrupt received, canceling infinite loop...")
+
+async def main():
+    loop = asyncio.get_event_loop()
+
+    # Register signal handlers
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(
+            sig, lambda s=sig: asyncio.create_task(shutdown(loop, s))
+        )
+
+    # Start both tasks
+    directory_path = os.path.dirname("{{.PipelineFilePath}}")
+    file_name = os.path.splitext(os.path.basename("{{.PipelineFilePath}}"))[0]
+
+    sys.path.append(directory_path)
+
+    # Dynamically import the pipeline module
+    pipeline_module = importlib.import_module(file_name)
+
+    # Execute the pipeline function directly
+    task1 = asyncio.create_task(getattr(pipeline_module, "{{.PipelineRunner}}")())
+    task2 = asyncio.create_task(wait_for_interrupt())
+
+    try:
+        await asyncio.gather(task1, task2)
+    except asyncio.CancelledError:
+        pass
+
+async def shutdown(loop, signal=None):
+    """Cleanup tasks tied to the service's shutdown."""
+    if signal:
+        print(f"Received exit signal {signal.name}...")
+
+    print("Closing database connections")
+    # Add any cleanup code here (e.g., closing database connections)
+    await asyncio.sleep(1.0)
+
+    tasks = [t for t in asyncio.all_tasks() if t is not
+                asyncio.current_task()]
+    [task.cancel() for task in tasks]
+
+    print(f"Cancelling {len(tasks)} outstanding tasks")
+    await asyncio.gather(*tasks, return_exceptions=True)
+    
+    await loop.shutdown_asyncgens()
+    loop.stop()
 
 if __name__ == "__main__":
-    main()
-
+    uvloop.install()
+    asyncio.run(main())
+    
+    
 `
