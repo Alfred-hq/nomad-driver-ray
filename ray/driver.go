@@ -513,38 +513,26 @@ func getActorId(taskID string) string {
 }
 
 func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) error {
-	d.logger.Info("stopping remote task", "task_id", taskID, "timeout", timeout, "signal", signal)
+	d.logger.Info("stopping ecs task", "task_id", taskID, "timeout", timeout, "signal", signal)
 	handle, ok := d.tasks.Get(taskID)
 	if !ok {
 		return drivers.ErrTaskNotFound
 	}
-	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
 
-	if err != nil {
-		fmt.Fprintf(f, "Failed to open writer while stopping \n")
-	}
-	actorId := getActorId(taskID)
-	_, err = d.client.DeleteJob(context.Background(), actorId)
-
-	if err != nil {
-		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorId, err)
-	} else {
-		fmt.Fprintf(f, "remote task stopped - [%s]\n", actorId)
-	}
-
-	// Detach if that's the signal, otherwise proceed to terminate
+	// Detach is that's the signal, otherwise kill
 	detach := signal == drivers.DetachSignal
 	handle.stop(detach)
 
-	// Wait for the task handle to signal completion
+	// Wait for handle to finish
 	select {
 	case <-handle.doneCh:
 	case <-time.After(timeout):
-		return fmt.Errorf("timed out waiting for remote task (id=%s) to stop (detach=%t)",
+		return fmt.Errorf("timed out waiting for ray task (id=%s) to stop (detach=%t)",
 			taskID, detach)
 	}
 
-	d.logger.Info("remote task stopped", "task_id", taskID, "timeout", timeout, "signal", signal)
+	d.logger.Info("ray task stopped", "task_id", taskID, "timeout", timeout,
+		"signal", signal)
 	return nil
 }
 

@@ -44,7 +44,7 @@ type rayRestInterface interface {
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
 	// // performed the action.
-	// StopTask(ctx context.Context, taskARN string) error
+	StopTask(ctx context.Context, submission_id string) error
 }
 
 type rayRestClient struct {
@@ -296,6 +296,33 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, str
 
 	// Process the response if needed, assuming the actor's name is returned
 	return submission_id, jobDetailsStr, err
+}
+
+// StopTask satisfies the ecs.ecsClientInterface StopTask interface function.
+func (c rayRestClient) StopTask(ctx context.Context, submissionId string) error {
+	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	url := RayClusterEndpoint + "/api/jobs/" + submissionId
+	jobDetails, _ := GetJobDetails(ctx, submissionId)
+	if jobDetails.Status == "NOT_FOUND" {
+		return nil
+	}
+
+	stopURL := RayClusterEndpoint + "/api/jobs/" + submissionId + "/stop"
+	var stopResponse interface{}
+	fmt.Printf("Trying to stop Task %s", submissionId)
+
+	err := sendRequest(ctx, stopURL, nil, &stopResponse, "POST")
+	if err != nil {
+		return fmt.Errorf("failed to stop job with submission ID %s: %w", submissionId, err)
+	}
+	var response interface{}
+
+	err_delete := sendRequest(ctx, url, nil, &response, "DELETE")
+	if err_delete != nil {
+		return err_delete
+	}
+
+	return nil // Success, return actor status
 }
 
 func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
