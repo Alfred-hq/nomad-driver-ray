@@ -475,8 +475,8 @@ func (h *taskHandle) run() {
 			if !ok {
 				// Logs channel closed, task exits
 				h.procState = drivers.TaskStateExited
-				h.exitResult.ExitCode = 0
-				h.exitResult.Signal = 0
+				h.exitResult.ExitCode = 143
+				h.exitResult.Signal = 15
 				h.completedAt = time.Now()
 				return
 			}
@@ -490,8 +490,8 @@ func (h *taskHandle) run() {
 				h.handleRunError(err, "log retrieval failed")
 			}
 			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 0
-			h.exitResult.Signal = 0
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
 			h.completedAt = time.Now()
 			return
 		}
