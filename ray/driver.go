@@ -102,7 +102,7 @@ var (
 	// capabilities is returned by the Capabilities RPC and indicates what
 	// optional features this driver supports
 	capabilities = &drivers.Capabilities{
-		SendSignals: false,
+		SendSignals: true,
 		Exec:        false,
 		FSIsolation: drivers.FSIsolationImage,
 		RemoteTasks: true,
@@ -214,6 +214,8 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 
 	return nil
 }
+
+
 
 func (d *Driver) getRayConfig(cluster string) (rayRestInterface, error) {
 	return rayRestClient{

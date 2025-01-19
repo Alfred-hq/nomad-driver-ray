@@ -540,5 +540,29 @@ func (h *taskHandle) handleRunError(err error, context string) {
 // stopTask is used to stop the ECS task, and monitor its status until it
 // reaches the stopped state.
 func (h *taskHandle) stopTask() error {
-	return nil
+	actorID := h.actor
+
+	if _, err := DeleteJob(h.ctx, actorID); err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-time.After(5 * time.Second):
+			_, err := DeleteJob(h.ctx, actorID)
+			if err != nil {
+				return err
+			}
+
+			// Check whether the status is in its final state, and log to provide
+			// operator visibility.
+			jobDetails, _ := GetJobDetails(h.ctx, actorID)
+
+			if jobDetails.Status == "STOPPED" {
+				h.logger.Info("Ray task has been stopped :) ")
+				return nil
+			}
+			h.logger.Debug("continuing to monitor ecs task shutdown", "status", jobDetails.Status)
+		}
+	}
 }
