@@ -102,7 +102,7 @@ var (
 	// capabilities is returned by the Capabilities RPC and indicates what
 	// optional features this driver supports
 	capabilities = &drivers.Capabilities{
-		SendSignals: true,
+		SendSignals: false,
 		Exec:        false,
 		FSIsolation: drivers.FSIsolationImage,
 		RemoteTasks: true,
@@ -214,8 +214,6 @@ func (d *Driver) SetConfig(cfg *base.Config) error {
 
 	return nil
 }
-
-
 
 func (d *Driver) getRayConfig(cluster string) (rayRestInterface, error) {
 	return rayRestClient{
@@ -516,37 +514,47 @@ func getActorId(taskID string) string {
 
 func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) error {
 	d.logger.Info("stopping remote task", "task_id", taskID, "timeout", timeout, "signal", signal)
+
 	handle, ok := d.tasks.Get(taskID)
 	if !ok {
 		return drivers.ErrTaskNotFound
 	}
+
 	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
-
 	if err != nil {
-		fmt.Fprintf(f, "Failed to open writer while stopping \n")
+		d.logger.Error("Failed to open writer while stopping task", "task_id", taskID, "error", err)
 	}
-	actorId := getActorId(taskID)
-	_, err = d.client.DeleteJob(context.Background(), actorId)
 
-	if err != nil {
-		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorId, err)
+	// Stop the remote job
+	actorID := getActorId(taskID)
+	success, err := DeleteJob(context.Background(), actorID)
+	if err != nil || !success {
+		fmt.Fprintf(f, "Failed to stop remote task [%s]: %v\n", actorID, err)
 	} else {
-		fmt.Fprintf(f, "remote task stopped - [%s]\n", actorId)
+		fmt.Fprintf(f, "Remote task stopped: [%s]\n", actorID)
 	}
 
-	// Detach if that's the signal, otherwise proceed to terminate
+	// Signal detachment if applicable
 	detach := signal == drivers.DetachSignal
 	handle.stop(detach)
 
-	// Wait for the task handle to signal completion
+	// Wait for task to signal completion or timeout
 	select {
 	case <-handle.doneCh:
+		d.logger.Info("Task stopped successfully", "task_id", taskID)
 	case <-time.After(timeout):
-		return fmt.Errorf("timed out waiting for remote task (id=%s) to stop (detach=%t)",
-			taskID, detach)
+		return fmt.Errorf("timed out waiting for task %s to stop (detach=%t)", taskID, detach)
 	}
 
-	d.logger.Info("remote task stopped", "task_id", taskID, "timeout", timeout, "signal", signal)
+	// Update task state
+	handle.stateLock.Lock()
+	defer handle.stateLock.Unlock()
+	handle.procState = drivers.TaskStateExited
+	handle.exitResult.ExitCode = 0
+	handle.exitResult.Signal = 0
+	handle.completedAt = time.Now()
+
+	d.logger.Info("Remote task stopped", "task_id", taskID, "timeout", timeout, "signal", signal)
 	return nil
 }
 
