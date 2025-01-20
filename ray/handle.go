@@ -486,6 +486,7 @@ func (h *taskHandle) streamLogs(ctx context.Context, f io.Writer) error {
 
     // Log streaming loop
     for {
+		fmt.Fprintf(f, "fetching logs\n",)
         select {
         case <-ctx.Done(): // Context cancellation (e.g., task termination)
             return nil
