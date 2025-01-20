@@ -439,55 +439,28 @@ func (h *taskHandle) run() {
 
 	// Log actor details
 	fmt.Fprintf(f, "Actor - %s\n", h.actor)
-
-	// Fetch job details
-	time.Sleep(10 * time.Second) // Simulate delay
-	jobDetails, err := GetJobDetails(h.ctx, h.actor)
-	if err != nil {
-		h.handleRunError(err, "failed to fetch job details")
-		return
-	}
-
-	fmt.Fprintf(f, "Job Details for Actor - %s: %+v\n", h.actor, jobDetails)
-	if jobDetails.Status != "RUNNING" && jobDetails.Status != "NOT_FOUND" {
-		// If job is not running, kill it and exit
-		fmt.Fprintf(f, "Actor status: %s, killing task...\n", jobDetails.Status)
-		if _, err := DeleteJob(context.Background(), h.actor); err != nil {
-			fmt.Fprintf(f, "Failed to stop remote task [%s]: %v\n", h.actor, err)
-		} else {
-			fmt.Fprintf(f, "Remote task stopped: [%s]\n", h.actor)
-		}
-		h.procState = drivers.TaskStateExited
-		h.exitResult.ExitCode = 0
-		h.exitResult.Signal = 0
-		h.completedAt = time.Now()
-		return
-	}
-
-	// Tail logs from the remote job
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	logs, errs := tailJobLogs(ctx, h.actor)
-
 	for {
-		select {
-		case log, ok := <-logs:
-			if !ok {
-				// Logs channel closed, task exits
-				h.procState = drivers.TaskStateExited
-				h.exitResult.ExitCode = 143
-				h.exitResult.Signal = 15
-				h.completedAt = time.Now()
-				return
-			}
-			now := time.Now().Format(time.RFC3339)
-			if _, err := fmt.Fprintf(f, "[%s] %s\n", now, log); err != nil {
-				h.handleRunError(err, "failed to write to stdout")
-			}
-		case err, ok := <-errs:
-			if ok {
-				fmt.Fprintf(f, "Error retrieving logs: %v\n", err)
-				h.handleRunError(err, "log retrieval failed")
+		// Fetch job details
+		time.Sleep(10 * time.Second) // Simulate delay
+		jobDetails, err := GetJobDetails(h.ctx, h.actor)
+		if err != nil {
+			h.procState = drivers.TaskStateExited
+			h.exitResult.ExitCode = 143
+			h.exitResult.Signal = 15
+			h.completedAt = time.Now()
+			fmt.Fprintf(f, "failed to fetch job details: [%s]\n", h.actor)
+			h.handleRunError(err, "failed to fetch job details")
+			return
+		}
+
+		fmt.Fprintf(f, "Job Details for Actor - %s: %+v\n", h.actor, jobDetails)
+		if jobDetails.Status != "RUNNING" {
+			// If job is not running, kill it and exit
+			fmt.Fprintf(f, "Actor status: %s, killing task...\n", jobDetails.Status)
+			if _, err := DeleteJob(context.Background(), h.actor); err != nil {
+				fmt.Fprintf(f, "Failed to stop remote task [%s]: %v\n", h.actor, err)
+			} else {
+				fmt.Fprintf(f, "Remote task stopped: [%s]\n", h.actor)
 			}
 			h.procState = drivers.TaskStateExited
 			h.exitResult.ExitCode = 143
@@ -496,6 +469,39 @@ func (h *taskHandle) run() {
 			return
 		}
 	}
+
+	// Tail logs from the remote job
+	// ctx, cancel := context.WithCancel(context.Background())
+	// defer cancel()
+	// logs, errs := tailJobLogs(ctx, h.actor)
+
+	// for {
+	// 	select {
+	// 	case log, ok := <-logs:
+	// 		if !ok {
+	// 			// Logs channel closed, task exits
+	// 			h.procState = drivers.TaskStateExited
+	// 			h.exitResult.ExitCode = 143
+	// 			h.exitResult.Signal = 15
+	// 			h.completedAt = time.Now()
+	// 			return
+	// 		}
+	// 		now := time.Now().Format(time.RFC3339)
+	// 		if _, err := fmt.Fprintf(f, "[%s] %s\n", now, log); err != nil {
+	// 			h.handleRunError(err, "failed to write to stdout")
+	// 		}
+	// 	case err, ok := <-errs:
+	// 		if ok {
+	// 			fmt.Fprintf(f, "Error retrieving logs: %v\n", err)
+	// 			h.handleRunError(err, "log retrieval failed")
+	// 		}
+	// 		h.procState = drivers.TaskStateExited
+	// 		h.exitResult.ExitCode = 143
+	// 		h.exitResult.Signal = 15
+	// 		h.completedAt = time.Now()
+	// 		return
+	// 	}
+	// }
 
 	// Cleanup and shutdown
 	h.stateLock.Lock()
