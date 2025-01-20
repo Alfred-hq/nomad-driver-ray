@@ -499,7 +499,7 @@ func (h *taskHandle) streamLogs(ctx context.Context, f io.Writer) error {
             if _, writeErr := fmt.Fprintf(f, "[%s] %s\n", now, message); writeErr != nil {
                 return fmt.Errorf("failed to write log to stdout: %w", writeErr)
             }
-			time.sleep(45)
+			time.Sleep(60)
         }
     }
 }
