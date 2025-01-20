@@ -468,24 +468,24 @@ func (h *taskHandle) streamLogs(ctx context.Context, f io.Writer) error {
     // Parse URL
     u, err := url.Parse(serverURL)
     if err != nil {
-        return fmt.Fprintf(f, "invalid WebSocket URL: %w", err)
+		fmt.Fprintf(f, "invalid WebSocket URL: %w", err)
+        return fmt.Errorf("invalid WebSocket URL: %w", err)
     }
 
     // Connect to WebSocket
     conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
     if err != nil {
-        return fmt.Fprintf(f,"failed to connect to WebSocket: %w", err)
+		fmt.Fprintf(f,"failed to connect to WebSocket: %w", err)
+        return fmt.Errorf("failed to connect to WebSocket: %w", err)
     }
     defer func() {
         if err := conn.Close(); err != nil {
-			fmt.Fprintf(f,"failed to close WebSocket connection: %w", err)
             h.logger.Error("failed to close WebSocket connection", "error", err)
         }
     }()
 
     // Log streaming loop
     for {
-		fmt.Fprintf(f, "fetching logs\n",)
         select {
         case <-ctx.Done(): // Context cancellation (e.g., task termination)
             return nil
@@ -493,7 +493,8 @@ func (h *taskHandle) streamLogs(ctx context.Context, f io.Writer) error {
             // Read message from WebSocket
             _, message, err := conn.ReadMessage()
             if err != nil {
-                return fmt.Fprintf(f,"failed to read WebSocket message: %w", err)
+				fmt.Fprintf(f,"failed to read WebSocket message: %w", err)
+                return fmt.Errorf("failed to read WebSocket message: %w", err)
             }
 
             // Write the log message to the task's stdout
