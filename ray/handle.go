@@ -261,52 +261,6 @@ func GetJobDetails(ctx context.Context, submissionId string) (JobDetailsResponse
 	return response, nil
 }
 
-func tailJobLogs(ctx context.Context, jobID string) (<-chan string, <-chan error) {
-	logs := make(chan string)
-	errs := make(chan error)
-
-	go func() {
-		defer close(logs)
-		defer close(errs)
-
-		serverURL := fmt.Sprintf(
-			"%s/api/jobs/%s/logs/tail",
-			GlobalConfig.TaskConfig.Task.RayClusterEndpoint,
-			jobID,
-		)
-		serverURL = strings.Replace(serverURL, "http", "ws", 1) // Replace "http" with "ws"
-
-		u, err := url.Parse(serverURL)
-		if err != nil {
-			errs <- fmt.Errorf("invalid URL: %w", err)
-			return
-		}
-
-		conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
-		if err != nil {
-			errs <- fmt.Errorf("failed to connect to WebSocket: %w", err)
-			return
-		}
-		defer conn.Close()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				_, message, err := conn.ReadMessage()
-				if err != nil {
-					errs <- fmt.Errorf("failed to read message: %w", err)
-					return
-				}
-				logs <- string(message)
-			}
-		}
-	}()
-
-	return logs, errs
-}
-
 // GetJobStatus sends a POST request to the specified URL with the given actor_id
 func DeleteJob(ctx context.Context, submissionId string) (bool, error) {
 	RayClusterEndpoint := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
@@ -411,114 +365,110 @@ func (h *taskHandle) IsRunning() bool {
 	return h.procState == drivers.TaskStateRunning
 }
 
-func (h *taskHandle) run() {
-	fmt.Println("Inside Run")
-	defer close(h.doneCh)
-	h.stateLock.Lock()
+func (h *taskHandle) initializeExitResult() {
+    h.stateLock.Lock()
+    defer h.stateLock.Unlock()
 
-	// Initialize exit result
-	if h.exitResult == nil {
-		h.exitResult = &drivers.ExitResult{}
-	}
-
-	// Open the task's StdoutPath to write health status updates
-	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
-	h.stateLock.Unlock()
-
-	if err != nil {
-		h.handleRunError(err, "failed to open task stdout path")
-		return
-	}
-
-	// Ensure the writer is closed properly
-	defer func() {
-		if err := f.Close(); err != nil {
-			h.logger.Error("failed to close task stdout handle correctly", "error", err)
-		}
-	}()
-
-	// Log actor details
-	fmt.Fprintf(f, "Actor - %s\n", h.actor)
-	for {
-		// Fetch job details
-		time.Sleep(10 * time.Second) // Simulate delay
-		jobDetails, err := GetJobDetails(h.ctx, h.actor)
-		if err != nil {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			fmt.Fprintf(f, "failed to fetch job details: [%s]\n", h.actor)
-			h.handleRunError(err, "failed to fetch job details")
-			return
-		}
-
-		fmt.Fprintf(f, "Job Details for Actor - %s: %+v\n", h.actor, jobDetails)
-		if jobDetails.Status != "RUNNING" {
-			// If job is not running, kill it and exit
-			fmt.Fprintf(f, "Actor status: %s, killing task...\n", jobDetails.Status)
-			if _, err := DeleteJob(context.Background(), h.actor); err != nil {
-				fmt.Fprintf(f, "Failed to stop remote task [%s]: %v\n", h.actor, err)
-			} else {
-				fmt.Fprintf(f, "Remote task stopped: [%s]\n", h.actor)
-			}
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			return
-		}
-	}
-
-	// Tail logs from the remote job
-	// ctx, cancel := context.WithCancel(context.Background())
-	// defer cancel()
-	// logs, errs := tailJobLogs(ctx, h.actor)
-
-	// for {
-	// 	select {
-	// 	case log, ok := <-logs:
-	// 		if !ok {
-	// 			// Logs channel closed, task exits
-	// 			h.procState = drivers.TaskStateExited
-	// 			h.exitResult.ExitCode = 143
-	// 			h.exitResult.Signal = 15
-	// 			h.completedAt = time.Now()
-	// 			return
-	// 		}
-	// 		now := time.Now().Format(time.RFC3339)
-	// 		if _, err := fmt.Fprintf(f, "[%s] %s\n", now, log); err != nil {
-	// 			h.handleRunError(err, "failed to write to stdout")
-	// 		}
-	// 	case err, ok := <-errs:
-	// 		if ok {
-	// 			fmt.Fprintf(f, "Error retrieving logs: %v\n", err)
-	// 			h.handleRunError(err, "log retrieval failed")
-	// 		}
-	// 		h.procState = drivers.TaskStateExited
-	// 		h.exitResult.ExitCode = 143
-	// 		h.exitResult.Signal = 15
-	// 		h.completedAt = time.Now()
-	// 		return
-	// 	}
-	// }
-
-	// Cleanup and shutdown
-	h.stateLock.Lock()
-	defer h.stateLock.Unlock()
-
-	if !h.detach {
-		if err := h.stopTask(); err != nil {
-			h.handleRunError(err, "failed to stop task correctly")
-			return
-		}
-	}
-
-	h.procState = drivers.TaskStateExited
-	h.exitResult.ExitCode = 143
-	h.exitResult.Signal = 15
-	h.completedAt = time.Now()
+    if h.exitResult == nil {
+        h.exitResult = &drivers.ExitResult{}
+    }
 }
+
+func (h *taskHandle) exitTask(exitCode, signal int) {
+    h.stateLock.Lock()
+    defer h.stateLock.Unlock()
+
+    h.procState = drivers.TaskStateExited
+    h.exitResult.ExitCode = exitCode
+    h.exitResult.Signal = signal
+    h.completedAt = time.Now()
+}
+
+func (h *taskHandle) openTaskWriter() (io.WriteCloser, error) {
+    h.stateLock.Lock()
+    defer h.stateLock.Unlock()
+
+    return fifo.OpenWriter(h.taskConfig.StdoutPath)
+}
+
+
+func (h *taskHandle) stopRemoteTask(jobDetails *JobDetails, err error, f io.Writer) {
+    h.exitTask(143, 15)
+
+    if err != nil {
+        fmt.Fprintf(f, "failed to fetch job details: [%s]\n", h.actor)
+    } else if jobDetails != nil {
+        fmt.Fprintf(f, "Actor status: %s, killing task...\n", jobDetails.Status)
+    }
+
+    if _, stopErr := DeleteJob(context.Background(), h.actor); stopErr != nil {
+        fmt.Fprintf(f, "Failed to stop remote task [%s]: %v\n", h.actor, stopErr)
+    } else {
+        fmt.Fprintf(f, "Remote task stopped: [%s]\n", h.actor)
+    }
+}
+
+func (h *taskHandle) run() {
+    fmt.Println("Inside Run")
+    defer close(h.doneCh)
+
+    h.initializeExitResult()
+
+    f, err := h.openTaskWriter()
+    if err != nil {
+        h.handleRunError(err, "failed to open task stdout path")
+        return
+    }
+    defer f.Close()
+
+    go h.pollJobDetails(f)
+
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    if err := h.streamLogs(ctx, f); err != nil {
+        h.handleRunError(err, "failed to stream logs")
+        return
+    }
+
+    h.exitTask(143, 15)
+}
+
+func (h *taskHandle) pollJobDetails(f io.Writer) {
+    for {
+        time.Sleep(10 * time.Second)
+        jobDetails, err := GetJobDetails(h.ctx, h.actor)
+        if err != nil || jobDetails.Status != "RUNNING" {
+            h.stopRemoteTask(jobDetails, err, f)
+            return
+        }
+        fmt.Fprintf(f, "Status: [%s]\n", jobDetails.Status)
+    }
+}
+
+func (h *taskHandle) streamLogs(ctx context.Context, f io.Writer) error {
+    // Setup WebSocket connection...
+    conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+    if err != nil {
+        return fmt.Errorf("failed to connect to WebSocket: %w", err)
+    }
+    defer conn.Close()
+
+    for {
+        select {
+        case <-ctx.Done():
+            return nil
+        default:
+            _, message, err := conn.ReadMessage()
+            if err != nil {
+                return fmt.Errorf("failed to read message: %w", err)
+            }
+            now := time.Now().Format(time.RFC3339)
+            fmt.Fprintf(f, "[%s] %s\n", now, message)
+        }
+    }
+}
+
 
 func (h *taskHandle) stop(detach bool) {
 	h.stateLock.Lock()
