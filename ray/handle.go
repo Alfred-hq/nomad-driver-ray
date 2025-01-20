@@ -449,7 +449,6 @@ func (h *taskHandle) run() {
         // Handle job status
         fmt.Fprintf(f, "Status: [%s]\n", jobDetails.Status)
         if jobDetails.Status != "RUNNING" {
-			fmt.Fprintf(f, "Actor status: \n", jobDetails.Status)
             h.stopRemoteTask(f) // Stop task if not running
             return
         }
@@ -500,6 +499,7 @@ func (h *taskHandle) streamLogs(ctx context.Context, f io.Writer) error {
             if _, writeErr := fmt.Fprintf(f, "[%s] %s\n", now, message); writeErr != nil {
                 return fmt.Errorf("failed to write log to stdout: %w", writeErr)
             }
+			time.sleep(45)
         }
     }
 }
