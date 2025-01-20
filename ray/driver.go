@@ -515,16 +515,21 @@ func getActorId(taskID string) string {
 }
 
 func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) error {
-	d.logger.Info("stopping remote task", "task_id", taskID, "timeout", timeout, "signal", signal)
-	handle, ok := d.tasks.Get(taskID)
-	if !ok {
-		return drivers.ErrTaskNotFound
-	}
 	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
 
 	if err != nil {
-		fmt.Fprintf(f, "Failed to open writer while stopping \n")
+		// return fmt.Errorf("failed to open writer for task %s: %w", taskID, err)
 	}
+
+	d.logger.Info("stopping remote task", "task_id", taskID, "timeout", timeout, "signal", signal)
+	fmt.Fprintf(f, "Stoping task, detach mode - %t\n", signal == drivers.DetachSignal)
+	
+	handle, ok := d.tasks.Get(taskID)
+	if !ok {
+		fmt.Fprintf(f, "task not found in the state \n")
+		// return drivers.ErrTaskNotFound
+	}
+
 	actorId := getActorId(taskID)
 	_, err = d.client.DeleteActor(context.Background(), actorId)
 
