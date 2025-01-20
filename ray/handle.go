@@ -392,7 +392,7 @@ func (h *taskHandle) openTaskWriter() (io.WriteCloser, error) {
 }
 
 
-func (h *taskHandle) stopRemoteTask(jobDetails *JobDetails, err error, f io.Writer) {
+func (h *taskHandle) stopRemoteTask(jobDetails JobDetailsResponse, err error, f io.Writer) {
     h.exitTask(143, 15)
 
     if err != nil {
@@ -412,59 +412,98 @@ func (h *taskHandle) run() {
     fmt.Println("Inside Run")
     defer close(h.doneCh)
 
+    // Ensure exitResult is initialized
     h.initializeExitResult()
 
+    // Open task writer
     f, err := h.openTaskWriter()
     if err != nil {
         h.handleRunError(err, "failed to open task stdout path")
         return
     }
-    defer f.Close()
+    defer func() {
+        if closeErr := f.Close(); closeErr != nil {
+            h.logger.Error("failed to close task stdout handle correctly", "error", closeErr)
+        }
+    }()
 
-    go h.pollJobDetails(f)
+    // Log actor details
+    fmt.Fprintf(f, "Actor - %s\n", h.actor)
 
+    // Create a context with cancellation for graceful shutdown
     ctx, cancel := context.WithCancel(context.Background())
     defer cancel()
 
-    if err := h.streamLogs(ctx, f); err != nil {
-        h.handleRunError(err, "failed to stream logs")
-        return
-    }
+    // Start streaming logs
+    go func() {
+        if err := h.streamLogs(ctx, f); err != nil {
+            h.logger.Error("log streaming error", "error", err)
+            cancel() // Signal to stop task on error
+        }
+    }()
 
-    h.exitTask(143, 15)
-}
-
-func (h *taskHandle) pollJobDetails(f io.Writer) {
+    // Poll job details
     for {
-        time.Sleep(10 * time.Second)
+        time.Sleep(10 * time.Second) // Simulate delay
         jobDetails, err := GetJobDetails(h.ctx, h.actor)
-        if err != nil || jobDetails.Status != "RUNNING" {
-            h.stopRemoteTask(jobDetails, err, f)
+        if err != nil {
+            h.stopRemoteTask(nil, err, f) // Stop task on error
             return
         }
+
+        // Handle job status
         fmt.Fprintf(f, "Status: [%s]\n", jobDetails.Status)
+        if jobDetails.Status != "RUNNING" {
+            h.stopRemoteTask(jobDetails, nil, f) // Stop task if not running
+            return
+        }
     }
 }
 
+
 func (h *taskHandle) streamLogs(ctx context.Context, f io.Writer) error {
-    // Setup WebSocket connection...
-    conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
+    // Construct WebSocket URL
+    serverURL := fmt.Sprintf(
+        "%s/api/jobs/%s/logs/tail",
+        GlobalConfig.TaskConfig.Task.RayClusterEndpoint,
+        h.actor, // Job ID
+    )
+    serverURL = strings.Replace(serverURL, "http", "ws", 1) // Replace "http" with "ws"
+
+    // Parse URL
+    u, err := url.Parse(serverURL)
+    if err != nil {
+        return fmt.Errorf("invalid WebSocket URL: %w", err)
+    }
+
+    // Connect to WebSocket
+    conn, _, err := websocket.DefaultDialer.Dial(u.String(), nil)
     if err != nil {
         return fmt.Errorf("failed to connect to WebSocket: %w", err)
     }
-    defer conn.Close()
+    defer func() {
+        if err := conn.Close(); err != nil {
+            h.logger.Error("failed to close WebSocket connection", "error", err)
+        }
+    }()
 
+    // Log streaming loop
     for {
         select {
-        case <-ctx.Done():
+        case <-ctx.Done(): // Context cancellation (e.g., task termination)
             return nil
         default:
+            // Read message from WebSocket
             _, message, err := conn.ReadMessage()
             if err != nil {
-                return fmt.Errorf("failed to read message: %w", err)
+                return fmt.Errorf("failed to read WebSocket message: %w", err)
             }
+
+            // Write the log message to the task's stdout
             now := time.Now().Format(time.RFC3339)
-            fmt.Fprintf(f, "[%s] %s\n", now, message)
+            if _, writeErr := fmt.Fprintf(f, "[%s] %s\n", now, message); writeErr != nil {
+                return fmt.Errorf("failed to write log to stdout: %w", writeErr)
+            }
         }
     }
 }
