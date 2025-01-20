@@ -392,14 +392,9 @@ func (h *taskHandle) openTaskWriter() (io.WriteCloser, error) {
 }
 
 
-func (h *taskHandle) stopRemoteTask(jobDetails *JobDetailsResponse, err error, f io.Writer) {
+func (h *taskHandle) stopRemoteTask(f io.Writer) {
     h.exitTask(143, 15)
 
-    if err != nil {
-        fmt.Fprintf(f, "failed to fetch job details: [%s]\n", h.actor)
-    } else if jobDetails != nil {
-        fmt.Fprintf(f, "Actor status: %s, killing task...\n", jobDetails.Status)
-    }
 
     if _, stopErr := DeleteJob(context.Background(), h.actor); stopErr != nil {
         fmt.Fprintf(f, "Failed to stop remote task [%s]: %v\n", h.actor, stopErr)
@@ -447,14 +442,15 @@ func (h *taskHandle) run() {
         time.Sleep(10 * time.Second) // Simulate delay
         jobDetails, err := GetJobDetails(h.ctx, h.actor)
         if err != nil {
-            h.stopRemoteTask(nil, err, f) // Stop task on error
+			fmt.Fprintf(f, "failed to fetch job details: [%s]\n", h.actor)
+            h.stopRemoteTask(f) // Stop task on error
             return
         }
-
         // Handle job status
         fmt.Fprintf(f, "Status: [%s]\n", jobDetails.Status)
         if jobDetails.Status != "RUNNING" {
-            h.stopRemoteTask(jobDetails, nil, f) // Stop task if not running
+			fmt.Fprintf(f, "Actor status: \n", jobDetails.Status)
+            h.stopRemoteTask(f) // Stop task if not running
             return
         }
     }
