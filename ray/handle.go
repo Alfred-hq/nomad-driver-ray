@@ -392,7 +392,7 @@ func (h *taskHandle) openTaskWriter() (io.WriteCloser, error) {
 }
 
 
-func (h *taskHandle) stopRemoteTask(jobDetails JobDetailsResponse, err error, f io.Writer) {
+func (h *taskHandle) stopRemoteTask(jobDetails *JobDetailsResponse, err error, f io.Writer) {
     h.exitTask(143, 15)
 
     if err != nil {
