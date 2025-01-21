@@ -320,7 +320,8 @@ func runCommand(ctx context.Context, command string) (string, error) {
 
 // GetActorLogs sends a POST request to retrieve logs of a specific actor
 func GetActorLogsCLI(ctx context.Context, actorID string) (string, error) {
-	command := fmt.Sprintf("ray list actors --filter 'state=ALIVE' | grep %s", actorID)
+	rayAddress := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	command := fmt.Sprintf("ray list actors --address %s --filter 'state=ALIVE' | grep %s", rayAddress, actorID)
 	actorDetails, err := runCommand(ctx, command)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch actor details: %v", err)
@@ -334,7 +335,7 @@ func GetActorLogsCLI(ctx context.Context, actorID string) (string, error) {
 	id := parts[1] // Extract the actor ID (assumes it's the second part)
 
 	// Step 2: Fetch logs for the actor
-	logsCommand := fmt.Sprintf("ray logs actor --id %s --tail 100", id)
+	logsCommand := fmt.Sprintf("ray logs actor --address %s --id %s --tail 100", rayAddress, id)
 	logs, err := runCommand(ctx, logsCommand)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch actor logs: %v", err)
@@ -346,7 +347,8 @@ func GetActorLogsCLI(ctx context.Context, actorID string) (string, error) {
 
 // GetActorStatus sends a POST request to the specified URL with the given actor_id
 func GetActorStatusCLI(ctx context.Context, actorID string) (string, error) {
-	command := fmt.Sprintf("ray list actors --filter 'state=ALIVE' | grep %s", actorID)
+	rayAddress := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	command := fmt.Sprintf("ray list actors --address %s --filter 'state=ALIVE' | grep %s", rayAddress, actorID)
 	actorDetails, err := runCommand(ctx, command)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch actor details: %v", err)
