@@ -22,7 +22,7 @@ import (
 	"bufio"
 	"regexp"
 	"strings"
-	"exec"
+	"os/exec"
 )
 
 // // These represent the ECS task terminal lifecycle statuses.
