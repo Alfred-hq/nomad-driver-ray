@@ -301,6 +301,65 @@ func (h *taskHandle) IsRunning() bool {
 	return h.procState == drivers.TaskStateRunning
 }
 
+// runCommand executes a shell command and returns the trimmed stdout or an error
+func runCommand(ctx context.Context, command string) (string, error) {
+	cmd := exec.CommandContext(ctx, "bash", "-c", command)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("%v: %s", err, strings.TrimSpace(stderr.String()))
+	}
+
+	return strings.TrimSpace(stdout.String()), nil
+}
+
+// GetActorLogs sends a POST request to retrieve logs of a specific actor
+func GetActorLogsCLI(ctx context.Context, actorID string) (string, error) {
+	command := fmt.Sprintf("ray list actors --filter 'state=ALIVE' | grep %s", actorID)
+	actorDetails, err := runCommand(ctx, command)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch actor details: %v", err)
+	}
+
+	// Parse the actor ID from the command output
+	parts := strings.Fields(actorDetails)
+	if len(parts) < 4 {
+		return "", fmt.Errorf("unable to parse actor ID from output: %s", actorDetails)
+	}
+	id := parts[1] // Extract the actor ID (assumes it's the second part)
+
+	// Step 2: Fetch logs for the actor
+	logsCommand := fmt.Sprintf("ray logs actor --id %s --tail 100", id)
+	logs, err := runCommand(ctx, logsCommand)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch actor logs: %v", err)
+	}
+
+	// Return the logs
+	return logs, nil
+}
+
+// GetActorStatus sends a POST request to the specified URL with the given actor_id
+func GetActorStatusCLI(ctx context.Context, actorID string) (string, error) {
+	command := fmt.Sprintf("ray list actors --filter 'state=ALIVE' | grep %s", actorID)
+	actorDetails, err := runCommand(ctx, command)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch actor details: %v", err)
+	}
+
+	// Parse the actor status from the command output
+	parts := strings.Fields(actorDetails)
+	if len(parts) < 4 {
+		return "", fmt.Errorf("unable to parse actor status from output: %s", actorDetails)
+	}
+	actorStatus := parts[3] // Extract the actor status (assumes it's the fourth part)
+
+	return actorStatus, nil
+}
+
 func (h *taskHandle) run() {
 	fmt.Println("Inside Run")
 	defer close(h.doneCh)
@@ -331,7 +390,7 @@ func (h *taskHandle) run() {
 	// Block until stopped, doing nothing in the meantime.
 	for {
 		// Call the GetActorStatus function
-		actorStatus, err := GetActorStatus(h.ctx, actorID)
+		actorStatus, err := GetActorStatusCLI(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
 			fmt.Fprintf(f, "Killing exisiting actor.",)
@@ -342,10 +401,7 @@ func (h *taskHandle) run() {
 			} else {
 				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
 			}
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
+			h.handleRunError(err, "Error retrieving actor status.")
 			return // TODO: add a retry here
 		}
 
@@ -354,10 +410,7 @@ func (h *taskHandle) run() {
 		memory, err := GetActorMemory(h.ctx, actorID)
 		
 		if err != nil {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
+			h.handleRunError(err, "Error retrieving actor memory.")
 			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
 			return
 		}
@@ -373,24 +426,17 @@ func (h *taskHandle) run() {
 				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
 			} else {
 				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
-				h.procState = drivers.TaskStateExited
-				h.exitResult.ExitCode = 143
-				h.exitResult.Signal = 15
-				h.completedAt = time.Now()
-				return
 			}
+			h.handleRunError(err, "Memory usage is above threshold.")
+			return
 		}
 		
 		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
 
-		actorLogs, err := GetActorLogs(h.ctx, actorID)
+		actorLogs, err := GetActorLogsCLI(h.ctx, actorID)
 		
 		if err != nil {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
+			h.handleRunError(err, "Error retrieving actor logs")
 			return
 		}
 
