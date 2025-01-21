@@ -515,22 +515,20 @@ func getActorId(taskID string) string {
 }
 
 func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) error {
+	d.logger.Info("stopping remote task", "task_id", taskID, "timeout", timeout, "signal", signal)
+	handle, ok := d.tasks.Get(taskID)
+	if !ok {
+		return fmt.Errorf("task already stopped \n")
+	}
 	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
 
 	if err != nil {
-		// return fmt.Errorf("failed to open writer for task %s: %w", taskID, err)
+		return fmt.Errorf("Failed to open writer while stopping \n")
+	} else {
+		fmt.Fprintf(f, "Stopping task with detach mode - %t \n", signal == drivers.DetachSignal)
 	}
-
-	d.logger.Info("stopping remote task", "task_id", taskID, "timeout", timeout, "signal", signal)
-	fmt.Fprintf(f, "Stoping task, detach mode - %t\n", signal == drivers.DetachSignal)
-	
-	handle, ok := d.tasks.Get(taskID)
-	if !ok {
-		fmt.Fprintf(f, "task not found in the state \n")
-		// return drivers.ErrTaskNotFound
-	}
-
 	actorId := getActorId(taskID)
+	fmt.Fprintf(f, "Actor id [%s]\n", actorId)
 	_, err = d.client.DeleteActor(context.Background(), actorId)
 
 
@@ -556,20 +554,19 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	d.logger.Info("remote task stopped", "task_id", taskID, "timeout", timeout, "signal", signal)
 	return nil
 }
-
 func (d *Driver) DestroyTask(taskID string, force bool) error {
 	d.logger.Info("destroying ray task", "task_id", taskID, "force", force)
 	handle, ok := d.tasks.Get(taskID)
 	if !ok {
-		return drivers.ErrTaskNotFound
+		return fmt.Errorf("task already destoryed \n")
 	}
 
 	f, err := fifo.OpenWriter(handle.taskConfig.StdoutPath)
 	if err != nil {
-		fmt.Fprintf(f, "Failed to open writer while stopping \n")
+		return fmt.Errorf("Failed to open writer while destroying \n")
+	} else {
+		fmt.Fprintf(f, "running destroy task \n")
 	}
-
-	fmt.Fprintf(f, "running destroy task \n")
 
 	if handle.IsRunning() && !force {
 		fmt.Fprintf(f, "cannot destroy running task \n")
