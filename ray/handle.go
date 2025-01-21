@@ -335,7 +335,8 @@ func GetActorLogsCLI(ctx context.Context, actorID string) (string, error) {
 	id := parts[1] // Extract the actor ID (assumes it's the second part)
 
 	// Step 2: Fetch logs for the actor
-	logsCommand := fmt.Sprintf("ray logs actor --address %s --id %s --tail 100", rayAddress, id)
+	// TODO: use varibale
+	logsCommand := fmt.Sprintf("ray logs actor --address localhost:6379 --id %s --tail 100", id)
 	logs, err := runCommand(ctx, logsCommand)
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch actor logs: %v", err)
