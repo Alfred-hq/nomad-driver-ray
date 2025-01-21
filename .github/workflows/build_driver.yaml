@@ -8,6 +8,8 @@ on:
     branches:
       - main
       - release/stable
+      - release/production
+
   pull_request:
     branches:
       - main
