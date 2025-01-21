@@ -16,14 +16,13 @@ class {{.Actor}}:
         try:
             await asyncio.Future()  # Await a never-completing future
         except asyncio.CancelledError:
-            print("Interrupt received, canceling infinite loop...")
+            print(\"Interrupt received, canceling infinite loop...\")
 
     async def shutdown(loop, signal=None):
-        """Cleanup tasks tied to the service's shutdown."""
         if signal:
-            print(f"Received exit signal {signal.name}...")
+            print(f\"Received exit signal {signal.name}...\")
     
-        print("Closing database connections")
+        print(\"Closing database connections\")
         # Add any cleanup code here (e.g., closing database connections)
         await asyncio.sleep(1.0)
     
@@ -31,7 +30,7 @@ class {{.Actor}}:
                     asyncio.current_task()]
         [task.cancel() for task in tasks]
     
-        print(f"Cancelling {len(tasks)} outstanding tasks")
+        print(f\"Cancelling {len(tasks)} outstanding tasks\")
         await asyncio.gather(*tasks, return_exceptions=True)
         
         await loop.shutdown_asyncgens()
@@ -49,16 +48,18 @@ class {{.Actor}}:
             )
 
         # Start both tasks
-        directory_path = os.path.dirname("{{.PipelineFilePath}}")
-        file_name = os.path.splitext(os.path.basename("{{.PipelineFilePath}}"))[0]
+        directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
+
+        # Get the file name without the extension
+        file_name = os.path.splitext(os.path.basename(\"{{.PipelineFilePath}}\"))[0]
 
         sys.path.append(directory_path)
 
-        # Dynamically import the pipeline module
+        # Dynamically import the module
         pipeline_module = importlib.import_module(file_name)
 
         # Execute the pipeline function directly
-        task1 = asyncio.create_task(getattr(pipeline_module, "{{.PipelineRunner}}")())
+        task1 = asyncio.create_task(getattr(pipeline_module, \"{{.PipelineRunner}}\")())
         task2 = asyncio.create_task(wait_for_interrupt())
         try:
             await asyncio.gather(task1, task2)
