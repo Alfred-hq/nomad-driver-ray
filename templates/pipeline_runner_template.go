@@ -10,42 +10,29 @@ import uvloop
 import asyncio
 import signal
 
+async def wait_for_interrupt():
+    try:
+        await asyncio.Future()  # Await a never-completing future
+    except asyncio.CancelledError:
+        print("Interrupt received, canceling infinite loop...")
+
+async def shutdown(loop, signal=None):
+    if signal:
+        print(f"Received exit signal {signal.name}...")
+    
+    print("Shutting down...")
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    for task in tasks:
+        task.cancel()
+    print(f"Cancelling {len(tasks)} outstanding tasks.")
+    await asyncio.gather(*tasks, return_exceptions=True)
+    await loop.shutdown_asyncgens()
+    loop.stop()
+
+
 @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
-    async def wait_for_interrupt():
-        try:
-            await asyncio.Future()  # Await a never-completing future
-        except asyncio.CancelledError:
-            print(\"Interrupt received, canceling infinite loop...\")
-
-    async def shutdown(loop, signal=None):
-        if signal:
-            print(f\"Received exit signal {signal.name}...\")
-    
-        print(\"Closing database connections\")
-        # Add any cleanup code here (e.g., closing database connections)
-        await asyncio.sleep(1.0)
-    
-        tasks = [t for t in asyncio.all_tasks() if t is not
-                    asyncio.current_task()]
-        [task.cancel() for task in tasks]
-    
-        print(f\"Cancelling {len(tasks)} outstanding tasks\")
-        await asyncio.gather(*tasks, return_exceptions=True)
-        
-        await loop.shutdown_asyncgens()
-        loop.stop()
-    
-
     async def {{.Runner}}(self):
-        uvloop.install()
-        loop = asyncio.get_event_loop()
-
-        # Register signal handlers
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(
-                sig, lambda s=sig: asyncio.create_task(shutdown(loop, s))
-            )
 
         # Start both tasks
         directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
@@ -59,7 +46,7 @@ class {{.Actor}}:
         pipeline_module = importlib.import_module(file_name)
 
         # Execute the pipeline function directly
-        task1 = asyncio.create_task(getattr(pipeline_module, \"{{.PipelineRunner}}\")())
+        task1 = asyncio.create_task(getattr(pipeline_module, "{{.PipelineRunner}}")())
         task2 = asyncio.create_task(wait_for_interrupt())
         try:
             await asyncio.gather(task1, task2)
@@ -70,10 +57,24 @@ class {{.Actor}}:
             ray.actor.exit_actor()
 
 
-# Initialize connection to the Ray head node on the default port.
-ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
+async def main():
+    # Initialize connection to the Ray head node on the default port.
+    ray.init(address=\"auto\", namespace=\"{{.Namespace}}\")
 
-pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_concurrency=2, num_cpus={{.NumCPUs}}).remote()
+    pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\", max_concurrency=2, num_cpus={{.NumCPUs}}).remote()
+    
+    uvloop.install()
+    loop = asyncio.get_event_loop()
+
+    # Register signal handlers
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(
+            sig, lambda s=sig: asyncio.create_task(shutdown(loop, s))
+            )
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
 `
 
 const RemoteRunnerTemplate = `
