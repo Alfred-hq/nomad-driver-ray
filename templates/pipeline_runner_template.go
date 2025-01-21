@@ -14,17 +14,17 @@ async def wait_for_interrupt():
     try:
         await asyncio.Future()  # Await a never-completing future
     except asyncio.CancelledError:
-        print("Interrupt received, canceling infinite loop...")
+        print(\"Interrupt received, canceling infinite loop...\")
 
 async def shutdown(loop, signal=None):
     if signal:
-        print(f"Received exit signal {signal.name}...")
+        print(f\"Received exit signal {signal.name}...\")
     
-    print("Shutting down...")
+    print(\"Shutting down...\")
     tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
     for task in tasks:
         task.cancel()
-    print(f"Cancelling {len(tasks)} outstanding tasks.")
+    print(f\"Cancelling {len(tasks)} outstanding tasks.\")
     await asyncio.gather(*tasks, return_exceptions=True)
     await loop.shutdown_asyncgens()
     loop.stop()
