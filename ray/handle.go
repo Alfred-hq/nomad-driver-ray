@@ -365,6 +365,40 @@ func GetActorStatusCLI(ctx context.Context, actorID string) (string, error) {
 	return actorStatus, nil
 }
 
+func DeleteActorCLI(ctx context.Context, actorID string) (string, error) {
+	rayAddress := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+
+	// Inline Python script for killing the actor
+	pythonCode := fmt.Sprintf(`
+import ray
+import sys
+
+ray.init(address="%s", namespace="public91")
+
+try:
+    actor = ray.get_actor(name="%s")
+    ray.kill(actor)
+    print("Actor deleted successfully")
+    sys.exit(0)
+except Exception as e:
+    print(f"Failed to kill actor: {str(e)}", file=sys.stderr)
+    sys.exit(1)
+`, rayAddress, actorID)
+
+	// Execute the Python code using the shell
+	cmd := exec.CommandContext(ctx, "python3", "-c", pythonCode)
+	output, err := cmd.CombinedOutput()
+
+	// Check for errors and process the response
+	if err != nil {
+		// Non-zero exit code indicates failure
+		return "", fmt.Errorf("failed to delete actor: %w\nOutput: %s", err, strings.TrimSpace(string(output)))
+	}
+
+	// Success
+	return strings.TrimSpace(string(output)), nil
+}
+
 func (h *taskHandle) run() {
 	fmt.Println("Inside Run")
 	defer close(h.doneCh)
@@ -398,7 +432,7 @@ func (h *taskHandle) run() {
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
 			fmt.Fprintf(f, "Killing exisiting actor.")
-			_, err = DeleteActor(context.Background(), actorID)
+			_, err = DeleteActorCLI(context.Background(), actorID)
 
 			if err != nil {
 				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
@@ -425,7 +459,7 @@ func (h *taskHandle) run() {
 			fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
 		} else if memory > memoryThreshold {
 			fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
-			_, err = DeleteActor(context.Background(), actorID)
+			_, err = DeleteActorCLI(context.Background(), actorID)
 			if err != nil {
 				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
 			} else {

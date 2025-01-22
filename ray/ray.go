@@ -9,11 +9,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os/exec"
+	"strings"
+
 	// "os/exec"
 	// "strings"
 	"net/http"
 	"text/template"
 	"time"
+
 	"github.com/ryadavDeqode/nomad-driver-ray/templates"
 )
 
@@ -37,6 +41,7 @@ type rayRestInterface interface {
 
 	DeleteActor(ctx context.Context, actor_id string) (string, error)
 
+	DeleteActorCLI(ctx context.Context, actorId string) (string, error)
 
 	// // StopTask stops the running ECS task, adding a custom message which can
 	// // be viewed via the AWS console specifying it was this Nomad driver which
@@ -227,16 +232,49 @@ func (c rayRestClient) DeleteActor(ctx context.Context, actor_id string) (string
 	return response.Status, nil
 }
 
+func (c rayRestClient) DeleteActorCLI(ctx context.Context, actorID string) (string, error) {
+	rayAddress := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+
+	// Inline Python script for killing the actor
+	pythonCode := fmt.Sprintf(`
+import ray
+import sys
+
+ray.init(address="%s", namespace="public91")
+
+try:
+    actor = ray.get_actor(name="%s")
+    ray.kill(actor)
+    print("Actor deleted successfully")
+    sys.exit(0)
+except Exception as e:
+    print(f"Failed to kill actor: {str(e)}", file=sys.stderr)
+    sys.exit(1)
+`, rayAddress, actorID)
+
+	// Execute the Python code using the shell
+	cmd := exec.CommandContext(ctx, "python3", "-c", pythonCode)
+	output, err := cmd.CombinedOutput()
+
+	// Check for errors and process the response
+	if err != nil {
+		// Non-zero exit code indicates failure
+		return "", fmt.Errorf("failed to delete actor: %w\nOutput: %s", err, strings.TrimSpace(string(output)))
+	}
+
+	// Success
+	return strings.TrimSpace(string(output)), nil
+}
 
 func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, error) {
 	actorStatus, err := GetActorStatusCLI(context.Background(), cfg.Task.Actor)
 
-	if actorStatus != "ALIVE" || err != nil  {
+	if actorStatus != "ALIVE" || err != nil {
 		scriptContent, err := generateScript(templates.RayActorTemplate, cfg.Task)
 		if err != nil {
 			return "", fmt.Errorf("failed to generate script: %w", err)
 		}
-		
+
 		entrypoint := fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 
 		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "127")
@@ -250,7 +288,7 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		if err != nil {
 			return "", fmt.Errorf("failed to generate runner script: %w", err)
 		}
-		
+
 		entrypoint = fmt.Sprintf(`python3 -c """%s"""`, scriptContent)
 		_, err = submitJob(ctx, cfg.Task.RayClusterEndpoint, entrypoint, "129")
 		if err != nil {
@@ -258,17 +296,16 @@ func (c rayRestClient) RunTask(ctx context.Context, cfg TaskConfig) (string, err
 		}
 
 		time.Sleep(10 * time.Second)
-	} 
-	
+	}
+
 	// Process the response if needed, assuming the actor's name is returned
 	return cfg.Task.Actor, nil
 }
 
-
 func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
 	data := map[string]interface{}{
 		"ServerName": "AlfredRayServeAPI",
-		"Namespace": GlobalConfig.TaskConfig.Task.Namespace,
+		"Namespace":  GlobalConfig.TaskConfig.Task.Namespace,
 	}
 	rayServeScript, err := generateScript(templates.RayServeAPITemplate, data)
 	if err != nil {
@@ -284,4 +321,3 @@ func (c rayRestClient) RunServeTask(ctx context.Context) (string, error) {
 
 	return "", nil
 }
-
