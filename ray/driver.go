@@ -6,19 +6,21 @@ package ray
 import (
 	"context"
 	"fmt"
-	"strings"
-	"time"
-	"sync"
 	"io"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/structs"
 	"github.com/hashicorp/nomad/drivers/shared/eventer"
+	nstructs "github.com/hashicorp/nomad/nomad/structs"
 	"github.com/hashicorp/nomad/plugins/base"
 	"github.com/hashicorp/nomad/plugins/drivers"
 	"github.com/hashicorp/nomad/plugins/shared/hclspec"
 	pstructs "github.com/hashicorp/nomad/plugins/shared/structs"
 	"github.com/ryadavDeqode/nomad-driver-ray/version"
-	"github.com/hashicorp/nomad/client/lib/fifo"
 )
 
 const (
@@ -76,10 +78,10 @@ var (
 		"namespace":              hclspec.NewAttr("namespace", "string", false),
 		"ray_cluster_endpoint":   hclspec.NewAttr("ray_cluster_endpoint", "string", false),
 		"ray_metrics_endpoint":   hclspec.NewAttr("ray_metrics_endpoint", "string", false),
-		"actor_memory_threshold":   hclspec.NewAttr("actor_memory_threshold", "string", false),
+		"actor_memory_threshold": hclspec.NewAttr("actor_memory_threshold", "string", false),
 		"ray_serve_api_endpoint": hclspec.NewAttr("ray_serve_api_endpoint", "string", false),
 		"max_actor_restarts":     hclspec.NewAttr("max_actor_restarts", "string", false),
-		"num_cpus":     		  hclspec.NewAttr("num_cpus", "string", false),
+		"num_cpus":               hclspec.NewAttr("num_cpus", "string", false),
 		"max_task_retries":       hclspec.NewAttr("max_task_retries", "string", false),
 		"pipeline_file_path":     hclspec.NewAttr("pipeline_file_path", "string", false),
 		"pipeline_runner":        hclspec.NewAttr("pipeline_runner", "string", false),
@@ -110,11 +112,11 @@ var (
 	}
 	GlobalConfig GlobalTaskConfig
 
-	rayServeMutex sync.Mutex
-	rayServeCond = sync.NewCond(&rayServeMutex) // Condition variable based on mutex
+	rayServeMutex        sync.Mutex
+	rayServeCond         = sync.NewCond(&rayServeMutex) // Condition variable based on mutex
 	isRayServeApiStarted bool
 	isRayServeApiRunning bool // To track if it's currently being executed
-	
+
 )
 
 // Driver is a driver for running ECS containers
@@ -159,18 +161,18 @@ type TaskConfig struct {
 }
 
 type RayTaskConfig struct {
-	Namespace          string `codec:"namespace"`
-	RayClusterEndpoint string `codec:"ray_cluster_endpoint"`
-	RayServeEndpoint   string `codec:"ray_serve_api_endpoint"`
-	RayMetricsEndpoint string `codec:"ray_metrics_endpoint"`
+	Namespace            string `codec:"namespace"`
+	RayClusterEndpoint   string `codec:"ray_cluster_endpoint"`
+	RayServeEndpoint     string `codec:"ray_serve_api_endpoint"`
+	RayMetricsEndpoint   string `codec:"ray_metrics_endpoint"`
 	ActorMemoryThreshold string `codec:"actor_memory_threshold"`
-	MaxActorRestarts   string `codec:"max_actor_restarts"`
-	NumCPUs   		   string `codec:"num_cpus"`
-	MaxTaskRetries     string `codec:"max_task_retries"`
-	PipelineFilePath   string `codec:"pipeline_file_path"`
-	PipelineRunner     string `codec:"pipeline_runner"`
-	Actor              string `codec:"actor"`
-	Runner             string `codec:"runner"`
+	MaxActorRestarts     string `codec:"max_actor_restarts"`
+	NumCPUs              string `codec:"num_cpus"`
+	MaxTaskRetries       string `codec:"max_task_retries"`
+	PipelineFilePath     string `codec:"pipeline_file_path"`
+	PipelineRunner       string `codec:"pipeline_runner"`
+	Actor                string `codec:"actor"`
+	Runner               string `codec:"runner"`
 }
 
 // NewECSDriver returns a new DriverPlugin implementation
@@ -343,53 +345,52 @@ func (d *Driver) RecoverTask(handle *drivers.TaskHandle) error {
 	return nil
 }
 
-
 func (d *Driver) StartRayServeApi(f io.WriteCloser) error {
 	rayServeMutex.Lock() // Lock to protect the shared state
-    defer rayServeMutex.Unlock()
-	
+	defer rayServeMutex.Unlock()
+
 	fmt.Fprintf(f, "Is ray serve started - %t\n", isRayServeApiStarted)
 
-    _, err := d.client.GetRayServeHealth(context.Background())
+	_, err := d.client.GetRayServeHealth(context.Background())
 
 	if err != nil {
 		fmt.Fprintf(f, "Refreshing serve deployment state - %t\n", isRayServeApiStarted)
 		isRayServeApiStarted = false
 	}
 
-    if isRayServeApiStarted {
-        return nil // Ray Serve API already started, no need to run again
-    }
+	if isRayServeApiStarted {
+		return nil // Ray Serve API already started, no need to run again
+	}
 
 	fmt.Fprintf(f, "Is ray serve running -  %t\n", isRayServeApiRunning)
 
-    if isRayServeApiRunning {
-        rayServeCond.Wait() // Wait for the first goroutine to finish
-        return nil // Once done waiting, just return since it's already started
-    }
+	if isRayServeApiRunning {
+		rayServeCond.Wait() // Wait for the first goroutine to finish
+		return nil          // Once done waiting, just return since it's already started
+	}
 
-    // Mark that Ray Serve API is running so others wait
-    isRayServeApiRunning = true
+	// Mark that Ray Serve API is running so others wait
+	isRayServeApiRunning = true
 
-    if err != nil {
+	if err != nil {
 		fmt.Fprintf(f, "Failed to Get Ray Serve Health - %v\n", err)
-        _, err = d.client.RunServeTask(context.Background())
-        if err == nil {
-            isRayServeApiStarted = true
+		_, err = d.client.RunServeTask(context.Background())
+		if err == nil {
+			isRayServeApiStarted = true
 			fmt.Fprintf(f, "Ray Serve API started successfully\n")
-        } else {
+		} else {
 			fmt.Fprintf(f, "Failed to start Ray Serve API - %v\n", err)
-        }
-    } else {
-		fmt.Fprintf(f, "Ray Serve API already running \n",)
-        isRayServeApiStarted = true
-    }
+		}
+	} else {
+		fmt.Fprintf(f, "Ray Serve API already running \n")
+		isRayServeApiStarted = true
+	}
 
-    // Ray Serve API startup has completed, notify other waiting goroutines
-    isRayServeApiRunning = false
-    rayServeCond.Broadcast() // Wake up all waiting goroutines
+	// Ray Serve API startup has completed, notify other waiting goroutines
+	isRayServeApiRunning = false
+	rayServeCond.Broadcast() // Wake up all waiting goroutines
 
-    return err
+	return err
 }
 
 func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drivers.DriverNetwork, error) {
@@ -428,12 +429,12 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	}
 
 	fmt.Fprintf(f, "ray task started\n")
-	
+
 	GlobalConfig = GlobalTaskConfig{
 		DriverConfig: cfg,
 		TaskConfig:   driverConfig,
 	}
-	
+
 	// Ensure StartRayServeApi is called only once and other tasks wait until it's done
 	// if err := d.StartRayServeApi(f); err != nil {
 	// 	fmt.Fprintf(f, "failed to start Ray Serve API: %v\n", err)
@@ -443,7 +444,8 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	_, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
 		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
-	} 
+		return nil, nil, nstructs.NewRecoverableError(fmt.Errorf("recoverable error message"), true)
+	}
 	// driverState.Actor = actor
 	if err := handle.SetDriverState(&driverState); err != nil {
 		d.logger.Error("failed to start task, error setting driver state", "error", err)
@@ -531,13 +533,11 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	fmt.Fprintf(f, "Actor id [%s]\n", actorId)
 	_, err = d.client.DeleteActor(context.Background(), actorId)
 
-
 	if err != nil {
 		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorId, err)
 	} else {
 		fmt.Fprintf(f, "remote task stopped - [%s]\n", actorId)
 	}
-
 
 	// Detach if that's the signal, otherwise proceed to terminate
 	detach := signal == drivers.DetachSignal

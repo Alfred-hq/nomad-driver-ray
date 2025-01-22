@@ -10,19 +10,21 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
 	// "net/url"
 
+	"bufio"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/stats"
 	"github.com/hashicorp/nomad/plugins/drivers"
-	"strconv"
-	"bufio"
-	"regexp"
-	"strings"
-	"os/exec"
 )
 
 // // These represent the ECS task terminal lifecycle statuses.
@@ -109,7 +111,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to send POST request: %w", err)
 		}
@@ -120,7 +122,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
@@ -130,7 +132,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to unmarshal response: %w", err)
 		}
@@ -224,7 +226,6 @@ func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 	return int(value), nil
 }
 
-
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
@@ -257,7 +258,6 @@ func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 
 	return response.Status, nil
 }
-
 
 func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig, rayRestInterface rayRestInterface) *taskHandle {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -370,13 +370,12 @@ func (h *taskHandle) run() {
 	defer close(h.doneCh)
 	h.stateLock.Lock()
 	// Open the tasks StdoutPath so we can write task health status updates.
-	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 	if h.exitResult == nil {
-		fmt.Fprintf(f, "Exit result is null")
 		h.exitResult = &drivers.ExitResult{}
 	}
 	h.stateLock.Unlock()
 
+	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 
 	if err != nil {
 		h.handleRunError(err, "failed to open task stdout path")
@@ -391,14 +390,14 @@ func (h *taskHandle) run() {
 	// Set the actor status and logs URLs
 	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
-	
+
 	// Block until stopped, doing nothing in the meantime.
 	for {
 		// Call the GetActorStatus function
 		actorStatus, err := GetActorStatusCLI(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-			fmt.Fprintf(f, "Killing exisiting actor.",)
+			fmt.Fprintf(f, "Killing exisiting actor.")
 			_, err = DeleteActor(context.Background(), actorID)
 
 			if err != nil {
@@ -413,7 +412,7 @@ func (h *taskHandle) run() {
 		fmt.Fprintf(f, "Actor is ALIVE, Fetching Memory USAGE \n")
 
 		memory, err := GetActorMemory(h.ctx, actorID)
-		
+
 		if err != nil {
 			h.handleRunError(err, "Error retrieving actor memory.")
 			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
@@ -423,7 +422,7 @@ func (h *taskHandle) run() {
 		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
 		memoryThreshold, err := strconv.Atoi(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold)
 		if err != nil {
-		  fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
+			fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
 		} else if memory > memoryThreshold {
 			fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
 			_, err = DeleteActor(context.Background(), actorID)
@@ -435,16 +434,15 @@ func (h *taskHandle) run() {
 			h.handleRunError(err, "Memory usage is above threshold.")
 			return
 		}
-		
+
 		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
 
 		actorLogs, err := GetActorLogsCLI(h.ctx, actorID)
-		
+
 		if err != nil {
 			h.handleRunError(err, "Error retrieving actor logs")
 			return
 		}
-
 
 		// Sleep for a specified interval before checking again
 		select {
