@@ -444,7 +444,7 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 	_, err = d.client.RunTask(context.Background(), driverConfig)
 	if err != nil {
 		fmt.Fprintf(f, "failed to start ray task: %v\n", err)
-		return nil, nil, nstructs.NewRecoverableError(fmt.Errorf("recoverable error message"), true)
+		return nil, nil, nstructs.NewRecoverableError(fmt.Errorf("failed to start ray task"), true)
 	}
 	// driverState.Actor = actor
 	if err := handle.SetDriverState(&driverState); err != nil {
