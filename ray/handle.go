@@ -366,14 +366,13 @@ func GetActorStatusCLI(ctx context.Context, actorID string) (string, error) {
 }
 
 func DeleteActorCLI(ctx context.Context, actorID string) (string, error) {
-	rayAddress := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
 
 	// Inline Python script for killing the actor
 	pythonCode := fmt.Sprintf(`
 import ray
 import sys
 
-ray.init(address="%s", namespace="public91")
+ray.init(address="ray://localhost:10001", namespace="public91")
 
 try:
     actor = ray.get_actor(name="%s")
@@ -383,7 +382,7 @@ try:
 except Exception as e:
     print(f"Failed to kill actor: {str(e)}", file=sys.stderr)
     sys.exit(1)
-`, rayAddress, actorID)
+`, actorID)
 
 	// Execute the Python code using the shell
 	cmd := exec.CommandContext(ctx, "python3", "-c", pythonCode)
