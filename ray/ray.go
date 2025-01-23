@@ -96,6 +96,11 @@ func (c rayRestClient) DescribeCluster(ctx context.Context) error {
 		return fmt.Errorf("ray API request to %s failed with status code: %d", url, resp.StatusCode)
 	}
 
+	cmd := exec.Command("ray", "--version")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("Ray CLI not found: %v", err)
+	}
+
 	// If the request is successful and the status code is 200 (OK)
 	return nil
 }
