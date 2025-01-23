@@ -372,10 +372,10 @@ func DeleteActorCLI(ctx context.Context, actorID string) (string, error) {
 import ray
 import sys
 
-ray.init(address="ray://localhost:10001", namespace="public91")
+ray.init(address="ray://localhost:10001")
 
 try:
-    actor = ray.get_actor(name="%s")
+    actor = ray.get_actor(name="%s", namespace="public91")
     ray.kill(actor)
     print("Actor deleted successfully")
     sys.exit(0)
