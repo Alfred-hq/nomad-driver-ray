@@ -413,26 +413,22 @@ func (h *taskHandle) run() {
 
 		memory, err := GetActorMemory(h.ctx, actorID)
 
-		if err != nil {
-			h.handleRunError(err, "Error retrieving actor memory.")
-			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
-			return
-		}
-
-		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
-		memoryThreshold, err := strconv.Atoi(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold)
-		if err != nil {
-			fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
-		} else if memory > memoryThreshold {
-			fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
-			_, err = DeleteActor(context.Background(), actorID)
+		if err == nil {
+			fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
+			memoryThreshold, err := strconv.Atoi(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold)
 			if err != nil {
-				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
-			} else {
-				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
+				fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
+			} else if memory > memoryThreshold {
+				fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
+				_, err = DeleteActor(context.Background(), actorID)
+				if err != nil {
+					fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
+				} else {
+					fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
+				}
+				h.handleRunError(err, "Memory usage is above threshold.")
+				return
 			}
-			h.handleRunError(err, "Memory usage is above threshold.")
-			return
 		}
 
 		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
@@ -440,6 +436,12 @@ func (h *taskHandle) run() {
 		actorLogs, err := GetActorLogsCLI(h.ctx, actorID)
 
 		if err != nil {
+			_, err = DeleteActor(context.Background(), actorID)
+			if err != nil {
+				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
+			} else {
+				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
+			}
 			h.handleRunError(err, "Error retrieving actor logs")
 			return
 		}
