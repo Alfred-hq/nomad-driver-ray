@@ -9,6 +9,7 @@ on:
       - main
       - release/stable
       - release/production
+      - fix/production
 
   pull_request:
     branches:
