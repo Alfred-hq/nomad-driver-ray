@@ -93,3 +93,20 @@ def main():
 if __name__ == \"__main__\":
     main()
 `
+
+`
+import ray
+
+ray.init(address="auto", namespace="public91", runtime_env={"RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING": 1})
+
+def main():
+    try:
+        # Get the actor
+        actor = ray.get_actor("alternativeme_fear_greed_index_1d_workflow_runner_async_4ed3493955f59b376d12ba1c2f0f2d6d")
+        actor.runner.remote()
+    except Exception as e:
+        print(e)
+
+if __name__ == "__main__":
+    main()
+`
