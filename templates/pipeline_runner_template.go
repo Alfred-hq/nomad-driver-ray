@@ -33,7 +33,6 @@ async def shutdown(loop, signal=None):
 @ray.remote(max_restarts={{.MaxActorRestarts}}, max_task_retries={{.MaxTaskRetries}})
 class {{.Actor}}:
     async def {{.Runner}}(self):
-
         # Start both tasks
         directory_path = os.path.dirname(\"{{.PipelineFilePath}}\")
 
@@ -46,7 +45,7 @@ class {{.Actor}}:
         pipeline_module = importlib.import_module(file_name)
 
         # Execute the pipeline function directly
-        task1 = asyncio.create_task(getattr(pipeline_module, "{{.PipelineRunner}}")())
+        task1 = asyncio.create_task(getattr(pipeline_module, \"{{.PipelineRunner}}\")())
         task2 = asyncio.create_task(wait_for_interrupt())
         try:
             await asyncio.gather(task1, task2)
