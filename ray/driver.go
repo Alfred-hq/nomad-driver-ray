@@ -531,7 +531,7 @@ func (d *Driver) StopTask(taskID string, timeout time.Duration, signal string) e
 	}
 	actorId := getActorId(taskID)
 	fmt.Fprintf(f, "Actor id [%s]\n", actorId)
-	_, err = d.client.DeleteActor(context.Background(), actorId)
+	_, err = d.client.DeleteActorCLI(context.Background(), actorId)
 
 	if err != nil {
 		fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorId, err)
