@@ -10,17 +10,21 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
 	// "net/url"
 
+	"bufio"
+	"os/exec"
+	"regexp"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/lib/fifo"
 	"github.com/hashicorp/nomad/client/stats"
 	"github.com/hashicorp/nomad/plugins/drivers"
-	"strconv"
-	"bufio"
-	"regexp"
 )
 
 // // These represent the ECS task terminal lifecycle statuses.
@@ -107,7 +111,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to send POST request: %w", err)
 		}
@@ -118,7 +122,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
@@ -128,7 +132,7 @@ func sendRequest(ctx context.Context, url string, payload interface{}, response 
 		if err != nil {
 			if attempts < 2 {
 				time.Sleep(retryDelay) // Wait before retrying
-				continue // Retry
+				continue               // Retry
 			}
 			return fmt.Errorf("failed to unmarshal response: %w", err)
 		}
@@ -222,7 +226,6 @@ func GetActorMemory(ctx context.Context, actorID string) (int, error) {
 	return int(value), nil
 }
 
-
 func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 	rayServeEndpoint := GlobalConfig.TaskConfig.Task.RayServeEndpoint
 	url := rayServeEndpoint + "/api/kill-actor?actor_id=" + actor_id
@@ -255,7 +258,6 @@ func DeleteActor(ctx context.Context, actor_id string) (string, error) {
 
 	return response.Status, nil
 }
-
 
 func newTaskHandle(logger hclog.Logger, ts TaskState, taskConfig *drivers.TaskConfig, rayRestInterface rayRestInterface) *taskHandle {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -301,18 +303,79 @@ func (h *taskHandle) IsRunning() bool {
 	return h.procState == drivers.TaskStateRunning
 }
 
+// runCommand executes a shell command and returns the trimmed stdout or an error
+func runCommand(ctx context.Context, command string) (string, error) {
+	cmd := exec.CommandContext(ctx, "bash", "-c", command)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("%v: %s", err, strings.TrimSpace(stderr.String()))
+	}
+
+	return strings.TrimSpace(stdout.String()), nil
+}
+
+// GetActorLogs sends a POST request to retrieve logs of a specific actor
+func GetActorLogsCLI(ctx context.Context, actorID string) (string, error) {
+	rayAddress := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	command := fmt.Sprintf("ray list actors --address %s --filter 'state=ALIVE' | grep %s", rayAddress, actorID)
+	actorDetails, err := runCommand(ctx, command)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch actor details: %v", err)
+	}
+
+	// Parse the actor ID from the command output
+	parts := strings.Fields(actorDetails)
+	if len(parts) < 4 {
+		return "", fmt.Errorf("unable to parse actor ID from output: %s", actorDetails)
+	}
+	id := parts[1] // Extract the actor ID (assumes it's the second part)
+
+	// Step 2: Fetch logs for the actor
+	// TODO: use varibale
+	logsCommand := fmt.Sprintf("ray logs actor --address localhost:6379 --id %s --tail 100", id)
+	logs, err := runCommand(ctx, logsCommand)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch actor logs: %v", err)
+	}
+
+	// Return the logs
+	return logs, nil
+}
+
+// GetActorStatus sends a POST request to the specified URL with the given actor_id
+func GetActorStatusCLI(ctx context.Context, actorID string) (string, error) {
+	rayAddress := GlobalConfig.TaskConfig.Task.RayClusterEndpoint
+	command := fmt.Sprintf("ray list actors --address %s --filter 'state=ALIVE' | grep %s", rayAddress, actorID)
+	actorDetails, err := runCommand(ctx, command)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch actor details: %v", err)
+	}
+
+	// Parse the actor status from the command output
+	parts := strings.Fields(actorDetails)
+	if len(parts) < 4 {
+		return "", fmt.Errorf("unable to parse actor status from output: %s", actorDetails)
+	}
+	actorStatus := parts[3] // Extract the actor status (assumes it's the fourth part)
+
+	return actorStatus, nil
+}
+
 func (h *taskHandle) run() {
 	fmt.Println("Inside Run")
 	defer close(h.doneCh)
 	h.stateLock.Lock()
 	// Open the tasks StdoutPath so we can write task health status updates.
-	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 	if h.exitResult == nil {
-		fmt.Fprintf(f, "Exit result is null")
 		h.exitResult = &drivers.ExitResult{}
 	}
 	h.stateLock.Unlock()
 
+	f, err := fifo.OpenWriter(h.taskConfig.StdoutPath)
 
 	if err != nil {
 		h.handleRunError(err, "failed to open task stdout path")
@@ -327,14 +390,14 @@ func (h *taskHandle) run() {
 	// Set the actor status and logs URLs
 	actorID := h.actor
 	fmt.Fprintf(f, "Actor - %s \n", actorID)
-	
+
 	// Block until stopped, doing nothing in the meantime.
 	for {
 		// Call the GetActorStatus function
-		actorStatus, err := GetActorStatus(h.ctx, actorID)
+		actorStatus, err := GetActorStatusCLI(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-			fmt.Fprintf(f, "Killing exisiting actor.",)
+			fmt.Fprintf(f, "Killing exisiting actor.")
 			_, err = DeleteActor(context.Background(), actorID)
 
 			if err != nil {
@@ -342,58 +405,46 @@ func (h *taskHandle) run() {
 			} else {
 				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
 			}
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
+			h.handleRunError(err, "Error retrieving actor status.")
 			return // TODO: add a retry here
 		}
 
 		fmt.Fprintf(f, "Actor is ALIVE, Fetching Memory USAGE \n")
 
 		memory, err := GetActorMemory(h.ctx, actorID)
-		
-		if err != nil {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Error retrieving actor memory. %v \n", err)
-			return
+
+		if err == nil {
+			fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
+			memoryThreshold, err := strconv.Atoi(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold)
+			if err != nil {
+				fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
+			} else if memory > memoryThreshold {
+				fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
+				_, err = DeleteActor(context.Background(), actorID)
+				if err != nil {
+					fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
+				} else {
+					fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
+				}
+				h.handleRunError(err, "Memory usage is above threshold.")
+				return
+			}
 		}
 
-		fmt.Fprintf(f, "Current Memory usage: %d \n", memory)
-		memoryThreshold, err := strconv.Atoi(GlobalConfig.TaskConfig.Task.ActorMemoryThreshold)
+		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
+
+		actorLogs, err := GetActorLogsCLI(h.ctx, actorID)
+
 		if err != nil {
-		  fmt.Fprintf(f, "error converting ActorMemoryThreshold to int: %v", err)
-		} else if memory > memoryThreshold {
-			fmt.Fprintf(f, "Memory usage is above threshold of %d. Exiting \n", memoryThreshold)
 			_, err = DeleteActor(context.Background(), actorID)
 			if err != nil {
 				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
 			} else {
 				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
-				h.procState = drivers.TaskStateExited
-				h.exitResult.ExitCode = 143
-				h.exitResult.Signal = 15
-				h.completedAt = time.Now()
-				return
 			}
-		}
-		
-		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
-
-		actorLogs, err := GetActorLogs(h.ctx, actorID)
-		
-		if err != nil {
-			h.procState = drivers.TaskStateExited
-			h.exitResult.ExitCode = 143
-			h.exitResult.Signal = 15
-			h.completedAt = time.Now()
-			fmt.Fprintf(f, "Error retrieving actor logs. %v \n", err)
+			h.handleRunError(err, "Error retrieving actor logs")
 			return
 		}
-
 
 		// Sleep for a specified interval before checking again
 		select {
