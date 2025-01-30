@@ -469,6 +469,7 @@ func (h *taskHandle) run() {
 		actorLogs, err := GetActorLogsCLI(h.ctx, actorID)
 
 		if err != nil {
+			fmt.Fprintf(f, "Error retrieving actor logs: %v \n", err)
 			_, err = DeleteActor(context.Background(), actorID)
 			if err != nil {
 				fmt.Fprintf(f, "Failed to stop remote task [%s] - [%s] \n", actorID, err)
