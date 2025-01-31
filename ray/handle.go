@@ -397,7 +397,7 @@ func (h *taskHandle) run() {
 		actorStatus, err := GetActorStatusCLI(h.ctx, actorID)
 		if err != nil {
 			fmt.Fprintf(f, "Error retrieving actor status. %v \n", err)
-			fmt.Fprintf(f, "Killing exisiting actor.")
+			fmt.Fprintf(f, "Killing existing actor.")
 			_, err = DeleteActor(context.Background(), actorID)
 
 			if err != nil {
@@ -406,7 +406,7 @@ func (h *taskHandle) run() {
 				fmt.Fprintf(f, "remote task stopped - [%s]\n", actorID)
 			}
 			h.handleRunError(err, "Error retrieving actor status.")
-			return // TODO: add a retry here
+			return
 		}
 
 		fmt.Fprintf(f, "Actor is ALIVE, Fetching Memory USAGE \n")
@@ -431,7 +431,7 @@ func (h *taskHandle) run() {
 			}
 		}
 
-		fmt.Fprintf(f, "Actor is Healty, Fetching Logs \n")
+		fmt.Fprintf(f, "Actor is Healthy, Fetching Logs \n")
 
 		actorLogs, err := GetActorLogsCLI(h.ctx, actorID)
 
@@ -449,38 +449,24 @@ func (h *taskHandle) run() {
 		// Sleep for a specified interval before checking again
 		select {
 		case <-time.After(10 * time.Second):
-			// Continue checking after 2 seconds
 			now := time.Now().Format(time.RFC3339)
 			if _, err := fmt.Fprintf(f, "[%s] - timestamp\n", now); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
+				return
 			}
 			if _, err := fmt.Fprintf(f, "[%s] - actorStatus\n", actorStatus); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
+				return
 			}
 			if _, err := fmt.Fprintf(f, "%s\n", actorLogs); err != nil {
 				h.handleRunError(err, "failed to write to stdout")
+				return
 			}
 		case <-h.ctx.Done():
-			// Handle context cancellation
-			fmt.Println("Context cancelled. Exiting...")
+			fmt.Fprintf(f, "Context cancelled. \n")
 			return
 		}
 	}
-	h.stateLock.Lock()
-	defer h.stateLock.Unlock()
-
-	// Only stop task if we're not detaching.
-	if !h.detach {
-		if err := h.stopTask(); err != nil {
-			h.handleRunError(err, "failed to stop task correctly")
-			return
-		}
-	}
-
-	h.procState = drivers.TaskStateExited
-	h.exitResult.ExitCode = 0
-	h.exitResult.Signal = 0
-	h.completedAt = time.Now()
 }
 
 func (h *taskHandle) stop(detach bool) {
@@ -498,10 +484,15 @@ func (h *taskHandle) stop(detach bool) {
 // terminal errors during the task run lifecycle.
 func (h *taskHandle) handleRunError(err error, context string) {
 	h.stateLock.Lock()
+	defer h.stateLock.Unlock()
 	h.completedAt = time.Now()
+	h.procState = drivers.TaskStateExited
 	h.exitResult.ExitCode = 1
+	h.exitResult.Signal = 0
 	h.exitResult.Err = fmt.Errorf("%s: %v", context, err)
-	h.stateLock.Unlock()
+
+	// Ensure we cancel the context to stop any ongoing operations
+	h.cancel()
 }
 
 // stopTask is used to stop the ECS task, and monitor its status until it
