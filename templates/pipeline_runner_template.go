@@ -71,7 +71,15 @@ pipeline_runner = {{.Actor}}.options(name=\"{{.Actor}}\", lifetime=\"detached\",
 const RemoteRunnerTemplate = `
 import ray
 import time
+import pyroscope
 
+pyroscope.configure(
+    application_name=\"{{.Runner}}\",
+    server_address=addr,
+    enable_logging=True,
+	detect_subprocesses = True,
+	gil_only=True,
+)
 ray.init(address=\"auto\", namespace=\"{{.Namespace}}\", runtime_env={\"RAY_ENABLE_RECORD_ACTOR_TASK_LOGGING\": 1})
 
 def main():
